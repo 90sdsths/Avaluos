@@ -382,14 +382,19 @@ function updateProgress(){
 }
 tracked.forEach(id=>{const el=document.getElementById(id);if(el){el.addEventListener('input',updateProgress);el.addEventListener('change',updateProgress);}});
 
-async function subirOneDrive(nombre, contenido){
-  const token=localStorage.getItem('od_token');
-  const exp=parseInt(localStorage.getItem('od_token_exp')||0);
-  if(!token||Date.now()>exp) return false;
-  const url=`https://graph.microsoft.com/v1.0/me/drive/root:/Avaluos/${nombre}:/content`;
+async function subirKoofr(nombre, contenido){
+  const auth=btoa('s3vazti4nperez@hotmail.com:noio3nc7d8w6cgqb');
+  const base='https://app.koofr.net/dav/Koofr/OneDrive/001%20TRABAJO/01%20AVAL%C3%9AOS/Automatizaci%C3%B3n/Avaluos';
   try{
-    const r=await fetch(url,{method:'PUT',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:contenido});
-    return r.ok;
+    await fetch(base,{method:'MKCOL',headers:{'Authorization':'Basic '+auth}});
+  }catch(e){}
+  try{
+    const r=await fetch(`${base}/${nombre}`,{
+      method:'PUT',
+      headers:{'Authorization':'Basic '+auth,'Content-Type':'application/json'},
+      body:contenido
+    });
+    return r.ok||r.status===201||r.status===204;
   }catch(e){return false;}
 }
 
@@ -452,8 +457,8 @@ async function guardar(){
   // Subir a OneDrive si está conectado
   const odEl=document.getElementById('od_status');
   odEl.classList.add('show');
-  const subido=await subirOneDrive(nombre,json);
-  odEl.textContent=subido?'☁️ Subido a OneDrive correctamente':'💾 Guardado localmente (OneDrive no conectado)';
+  const subido=await subirKoofr(nombre,json);
+  odEl.textContent=subido?'☁️ Subido a Koofr → OneDrive correctamente':'💾 Guardado localmente (sin conexión a Koofr)';
 
   // Guardar en recientes
   const recientes=JSON.parse(localStorage.getItem('avaluos_recientes')||'[]');

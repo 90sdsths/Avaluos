@@ -11,120 +11,51 @@
 <link rel="manifest" href="manifest.json">
 <title>Avalúos — Sistema de Registro</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --blue: #1A73E8; --blue-dark: #1557B0; --blue-light: #E8F0FE;
-    --green: #188038; --green-light: #E6F4EA;
-    --amber: #E37400; --amber-light: #FEF3E2;
-    --red: #D93025; --gray: #5F6368;
-    --gray-light: #F1F3F4; --gray-border: #DADCE0;
-    --text: #202124; --white: #FFFFFF;
-  }
-  html, body { height: 100%; }
-  body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: #F8F9FA; color: var(--text);
-    display: flex; flex-direction: column; min-height: 100vh;
-  }
-
-  header {
-    background: var(--blue); color: white;
-    padding: 20px 20px 28px; text-align: center;
-  }
-  .logo { font-size: 40px; margin-bottom: 8px; }
-  header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
-  header p { font-size: 13px; opacity: 0.85; margin-top: 4px; }
-
-  .container { flex: 1; max-width: 480px; margin: 0 auto; padding: 20px 16px; width: 100%; }
-
-  .section-title {
-    font-size: 12px; font-weight: 600; color: var(--gray);
-    text-transform: uppercase; letter-spacing: 0.06em;
-    margin-bottom: 12px; margin-top: 4px;
-  }
-
-  .card-btn {
-    display: flex; align-items: center; gap: 16px;
-    background: white; border: 1.5px solid var(--gray-border);
-    border-radius: 12px; padding: 18px 16px; margin-bottom: 12px;
-    cursor: pointer; text-decoration: none; color: var(--text);
-    transition: all 0.15s; -webkit-tap-highlight-color: transparent;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-  }
-  .card-btn:active { transform: scale(0.97); background: var(--gray-light); }
-  .card-icon {
-    width: 52px; height: 52px; border-radius: 14px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 26px; flex-shrink: 0;
-  }
-  .card-icon.urban { background: var(--blue-light); }
-  .card-icon.rural { background: var(--green-light); }
-  .card-text { flex: 1; }
-  .card-text strong { display: block; font-size: 16px; font-weight: 600; margin-bottom: 3px; }
-  .card-text span { font-size: 13px; color: var(--gray); }
-  .card-arrow { font-size: 20px; color: var(--gray); opacity: 0.5; }
-
-  .divider { height: 1px; background: var(--gray-border); margin: 20px 0; }
-
-  .recientes-title {
-    font-size: 12px; font-weight: 600; color: var(--gray);
-    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px;
-  }
-  .reciente-item {
-    display: flex; align-items: center; gap: 12px;
-    background: white; border: 1px solid var(--gray-border);
-    border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;
-    font-size: 13px;
-  }
-  .reciente-badge {
-    font-size: 10px; font-weight: 600; padding: 3px 7px;
-    border-radius: 6px; flex-shrink: 0;
-  }
-  .badge-u { background: var(--blue-light); color: var(--blue); }
-  .badge-r { background: var(--green-light); color: var(--green); }
-  .reciente-info { flex: 1; min-width: 0; }
-  .reciente-info strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-  .reciente-info small { color: var(--gray); font-size: 11px; }
-  .reciente-del { background: none; border: none; color: var(--gray); cursor: pointer; font-size: 16px; padding: 4px; }
-
-  .empty-state {
-    text-align: center; padding: 24px 16px;
-    color: var(--gray); font-size: 13px;
-  }
-  .empty-state div { font-size: 32px; margin-bottom: 8px; }
-
-  .onedrive-bar {
-    background: white; border-top: 1px solid var(--gray-border);
-    padding: 12px 16px; display: flex; align-items: center; gap: 10px;
-  }
-  .onedrive-bar .od-icon { font-size: 22px; }
-  .onedrive-bar .od-text { flex: 1; font-size: 13px; }
-  .onedrive-bar .od-text strong { display: block; font-size: 12px; font-weight: 600; }
-  .onedrive-bar .od-text span { font-size: 11px; color: var(--gray); }
-  .btn-od {
-    padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer;
-    font-size: 12px; font-weight: 600; font-family: inherit;
-    background: var(--blue); color: white; transition: all 0.12s;
-  }
-  .btn-od:active { background: var(--blue-dark); }
-  .btn-od.connected { background: var(--green-light); color: var(--green); border: 1px solid var(--green); }
-
-  .install-banner {
-    background: var(--amber-light); border-left: 4px solid var(--amber);
-    padding: 12px 16px; margin-bottom: 16px; border-radius: 8px;
-    font-size: 13px; display: none;
-  }
-  .install-banner.show { display: block; }
-  .install-banner strong { display: block; margin-bottom: 3px; color: var(--amber); }
-  .btn-install {
-    margin-top: 8px; padding: 7px 14px; border-radius: 7px;
-    border: none; background: var(--amber); color: white;
-    font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
-  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  :root{--blue:#1A73E8;--blue-dark:#1557B0;--blue-light:#E8F0FE;--green:#188038;--green-light:#E6F4EA;--amber:#E37400;--amber-light:#FEF3E2;--gray:#5F6368;--gray-light:#F1F3F4;--gray-border:#DADCE0;--text:#202124;--white:#FFFFFF;}
+  html,body{height:100%;}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#F8F9FA;color:var(--text);display:flex;flex-direction:column;min-height:100vh;}
+  header{background:var(--blue);color:white;padding:20px 20px 28px;text-align:center;}
+  .logo{font-size:40px;margin-bottom:8px;}
+  header h1{font-size:22px;font-weight:700;}
+  header p{font-size:13px;opacity:0.85;margin-top:4px;}
+  .container{flex:1;max-width:480px;margin:0 auto;padding:20px 16px;width:100%;}
+  .section-title{font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;margin-top:4px;}
+  .card-btn{display:flex;align-items:center;gap:16px;background:white;border:1.5px solid var(--gray-border);border-radius:12px;padding:18px 16px;margin-bottom:12px;cursor:pointer;text-decoration:none;color:var(--text);transition:all 0.15s;-webkit-tap-highlight-color:transparent;box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+  .card-btn:active{transform:scale(0.97);background:var(--gray-light);}
+  .card-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
+  .card-icon.urban{background:var(--blue-light);}
+  .card-icon.rural{background:var(--green-light);}
+  .card-text{flex:1;}
+  .card-text strong{display:block;font-size:16px;font-weight:600;margin-bottom:3px;}
+  .card-text span{font-size:13px;color:var(--gray);}
+  .card-arrow{font-size:20px;color:var(--gray);opacity:0.5;}
+  .divider{height:1px;background:var(--gray-border);margin:20px 0;}
+  .recientes-title{font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;}
+  .reciente-item{display:flex;align-items:center;gap:12px;background:white;border:1px solid var(--gray-border);border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:13px;}
+  .reciente-badge{font-size:10px;font-weight:600;padding:3px 7px;border-radius:6px;flex-shrink:0;}
+  .badge-u{background:var(--blue-light);color:var(--blue);}
+  .badge-r{background:var(--green-light);color:var(--green);}
+  .reciente-info{flex:1;min-width:0;}
+  .reciente-info strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;}
+  .reciente-info small{color:var(--gray);font-size:11px;}
+  .reciente-del{background:none;border:none;color:var(--gray);cursor:pointer;font-size:16px;padding:4px;}
+  .empty-state{text-align:center;padding:24px 16px;color:var(--gray);font-size:13px;}
+  .empty-state div{font-size:32px;margin-bottom:8px;}
+  .sync-bar{background:white;border-top:1px solid var(--gray-border);padding:14px 16px;display:flex;align-items:center;gap:12px;}
+  .sync-icon{font-size:24px;flex-shrink:0;}
+  .sync-text{flex:1;}
+  .sync-text strong{display:block;font-size:13px;font-weight:600;margin-bottom:2px;}
+  .sync-text span{font-size:11px;color:var(--gray);}
+  .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
+  .sync-dot.off{background:var(--gray-border);}
+  .install-banner{background:var(--amber-light);border-left:4px solid var(--amber);padding:12px 16px;margin-bottom:16px;border-radius:8px;font-size:13px;display:none;}
+  .install-banner.show{display:block;}
+  .install-banner strong{display:block;margin-bottom:3px;color:var(--amber);}
+  .btn-install{margin-top:8px;padding:7px 14px;border-radius:7px;border:none;background:var(--amber);color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
 </style>
 </head>
 <body>
-
 <header>
   <div class="logo">📋</div>
   <h1>Sistema de Avalúos</h1>
@@ -132,10 +63,9 @@
 </header>
 
 <div class="container">
-
   <div class="install-banner" id="installBanner">
     <strong>💡 Instalar como app</strong>
-    Toca el botón para agregar este sistema a tu pantalla de inicio y usarlo sin internet.
+    Toca el botón para agregar a tu pantalla de inicio.
     <br><button class="btn-install" id="btnInstall">Instalar app</button>
   </div>
 
@@ -160,118 +90,66 @@
   </a>
 
   <div class="divider"></div>
-
   <p class="recientes-title">Registros recientes</p>
   <div id="listaRecientes"></div>
-
 </div>
 
-<div class="onedrive-bar">
-  <span class="od-icon">☁️</span>
-  <div class="od-text">
-    <strong>OneDrive</strong>
-    <span id="odStatus">No conectado</span>
+<div class="sync-bar">
+  <span class="sync-icon">☁️</span>
+  <div class="sync-text">
+    <strong>Koofr → OneDrive</strong>
+    <span id="syncStatus">Sincronización automática activa</span>
   </div>
-  <button class="btn-od" id="btnOneDrive" onclick="conectarOneDrive()">Conectar</button>
+  <div class="sync-dot" id="syncDot"></div>
 </div>
 
 <script>
-// ── Registros recientes desde localStorage ──────────────────
-function cargarRecientes() {
-  const lista = document.getElementById('listaRecientes');
-  const recientes = JSON.parse(localStorage.getItem('avaluos_recientes') || '[]');
-  if (recientes.length === 0) {
-    lista.innerHTML = '<div class="empty-state"><div>📂</div>No hay registros guardados aún</div>';
-    return;
-  }
-  lista.innerHTML = recientes.slice(0, 8).map((r, i) => `
+function cargarRecientes(){
+  const lista=document.getElementById('listaRecientes');
+  const rec=JSON.parse(localStorage.getItem('avaluos_recientes')||'[]');
+  if(!rec.length){lista.innerHTML='<div class="empty-state"><div>📂</div>No hay registros guardados aún</div>';return;}
+  lista.innerHTML=rec.slice(0,8).map((r,i)=>`
     <div class="reciente-item">
-      <span class="reciente-badge ${r.tipo === 'URBANO' ? 'badge-u' : 'badge-r'}">${r.tipo === 'URBANO' ? 'URB' : 'RUR'}</span>
+      <span class="reciente-badge ${r.tipo==='URBANO'?'badge-u':'badge-r'}">${r.tipo==='URBANO'?'URB':'RUR'}</span>
       <div class="reciente-info">
-        <strong>${r.municipio || 'Sin municipio'} — ${r.contratante || 'Sin contratante'}</strong>
-        <small>${r.fecha || ''} · ${r.fecha_guardado || ''}</small>
+        <strong>${r.municipio||'Sin municipio'} — ${r.contratante||'Sin contratante'}</strong>
+        <small>${r.fecha||''} · ${r.fecha_guardado||''}</small>
       </div>
-      <button class="reciente-del" onclick="eliminarReciente(${i})" title="Eliminar">×</button>
-    </div>
-  `).join('');
+      <button class="reciente-del" onclick="eliminarReciente(${i})">×</button>
+    </div>`).join('');
+}
+function eliminarReciente(i){
+  const rec=JSON.parse(localStorage.getItem('avaluos_recientes')||'[]');
+  rec.splice(i,1);localStorage.setItem('avaluos_recientes',JSON.stringify(rec));cargarRecientes();
 }
 
-function eliminarReciente(i) {
-  const recientes = JSON.parse(localStorage.getItem('avaluos_recientes') || '[]');
-  recientes.splice(i, 1);
-  localStorage.setItem('avaluos_recientes', JSON.stringify(recientes));
-  cargarRecientes();
-}
-
-// ── OneDrive / estado de conexión ───────────────────────────
-function conectarOneDrive() {
-  const token = localStorage.getItem('od_token');
-  if (token) {
-    if (confirm('¿Desconectar OneDrive?')) {
-      localStorage.removeItem('od_token');
-      actualizarEstadoOD();
+// Verificar conectividad con Koofr
+async function verificarKoofr(){
+  const dot=document.getElementById('syncDot');
+  const status=document.getElementById('syncStatus');
+  try{
+    const auth=btoa('s3vazti4nperez@hotmail.com:noio3nc7d8w6cgqb');
+    const r=await fetch('https://app.koofr.net/dav/Koofr/OneDrive/001%20TRABAJO/01%20AVAL%C3%9AOS/Automatizaci%C3%B3n/Avaluos/',{method:'PROPFIND',headers:{'Authorization':'Basic '+auth,'Depth':'0'}});
+    if(r.ok||r.status===207){
+      dot.classList.remove('off');
+      status.textContent='Koofr conectado → OneDrive sincronizando';
+    } else {
+      dot.classList.add('off');
+      status.textContent='Sin conexión — los JSON se guardan localmente';
     }
-    return;
-  }
-  const clientId = localStorage.getItem('od_client_id') || '';
-  const id = prompt('Ingresa el Client ID de tu app Azure\n(Consulta la guía de configuración):', clientId);
-  if (!id) return;
-  localStorage.setItem('od_client_id', id);
-  const redirectUri = encodeURIComponent(location.href.split('?')[0]);
-  const scope = encodeURIComponent('Files.ReadWrite offline_access');
-  window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${id}&response_type=token&redirect_uri=${redirectUri}&scope=${scope}`;
-}
-
-function actualizarEstadoOD() {
-  const token = localStorage.getItem('od_token');
-  const btn = document.getElementById('btnOneDrive');
-  const status = document.getElementById('odStatus');
-  if (token) {
-    btn.textContent = 'Conectado ✓';
-    btn.classList.add('connected');
-    status.textContent = 'Sincronización activa';
-  } else {
-    btn.textContent = 'Conectar';
-    btn.classList.remove('connected');
-    status.textContent = 'No conectado — los JSON se descargan localmente';
+  }catch(e){
+    dot.classList.add('off');
+    status.textContent='Sin conexión — los JSON se guardan localmente';
   }
 }
 
-// Capturar token de OneDrive del hash de la URL (flujo implicit)
-function capturarToken() {
-  const hash = location.hash.substring(1);
-  if (!hash.includes('access_token')) return;
-  const params = Object.fromEntries(hash.split('&').map(p => p.split('=')));
-  if (params.access_token) {
-    localStorage.setItem('od_token', params.access_token);
-    const exp = Date.now() + parseInt(params.expires_in || 3600) * 1000;
-    localStorage.setItem('od_token_exp', exp);
-    history.replaceState(null, '', location.pathname);
-    actualizarEstadoOD();
-  }
-}
-
-// ── PWA Install prompt ───────────────────────────────────────
+// PWA install
 let deferredPrompt;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPrompt = e;
-  document.getElementById('installBanner').classList.add('show');
-});
-document.getElementById('btnInstall').addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
-  if (outcome === 'accepted') document.getElementById('installBanner').classList.remove('show');
-  deferredPrompt = null;
-});
-window.addEventListener('appinstalled', () => {
-  document.getElementById('installBanner').classList.remove('show');
-});
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('installBanner').classList.add('show');});
+document.getElementById('btnInstall').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();const{outcome}=await deferredPrompt.userChoice;if(outcome==='accepted')document.getElementById('installBanner').classList.remove('show');deferredPrompt=null;});
 
-capturarToken();
-actualizarEstadoOD();
 cargarRecientes();
+verificarKoofr();
 </script>
 </body>
 </html>
