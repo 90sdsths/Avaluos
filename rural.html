@@ -72,6 +72,9 @@
   .od-status{font-size:12px;color:var(--green);margin-top:6px;display:none;}
   .od-status.show{display:block;}
   @media(max-width:380px){.row2{grid-template-columns:1fr;}}
+  .dep-del,.sx-fdel,.piso-del{background:none;border:none;color:#D93025;font-size:16px;cursor:pointer;padding:2px 6px;line-height:1;}
+  .btn-add-sub{background:none;border:1px dashed #DADCE0;border-radius:6px;color:#5F6368;font-size:11px;padding:5px 8px;cursor:pointer;font-family:inherit;width:100%;}
+  .btn-add-sub:active{background:#F1F3F4;}
 </style>
 </head>
 <body>
@@ -103,9 +106,10 @@
     </div>
     <div class="field"><label>Contratante(s) <span class="req">*</span></label><input type="text" id="f_contratante" placeholder="Nombre completo"></div>
     <div class="row2">
-      <div class="field"><label>Anticipo $</label><input type="number" id="f_anticipo" placeholder="0" inputmode="numeric"></div>
-      <div class="field"><label>Total $</label><input type="number" id="f_total" placeholder="0" inputmode="numeric"></div>
+      <div class="field"><label>Valor total $</label><input type="number" id="f_total" placeholder="0" inputmode="numeric"></div>
+      <div class="field"><label>Anticipo / abono $</label><input type="number" id="f_anticipo" placeholder="0" inputmode="numeric"></div>
     </div>
+    <div class="field"><label>Pendiente $ (calculado automáticamente)</label><input type="number" id="f_pendiente" placeholder="0" readonly style="background:#F1F3F4;font-weight:600;color:#188038;"></div>
     <div class="field">
       <label>Finalidad del avalúo</label>
       <div class="chip-group" id="chips_finalidad">
@@ -215,14 +219,42 @@
   </div>
 </div>
 
+<!-- MEDIDAS Y DEPENDENCIAS -->
+<div class="card">
+  <div class="card-header"><span>📐 Medidas y dependencias</span></div>
+  <div class="card-body">
+    <div class="row2">
+      <div class="field"><label>Área total predio (m²)</label><input type="number" id="f_area_lote" placeholder="0" inputmode="decimal" step="0.01"></div>
+      <div class="field"><label>Área construida (m²)</label><input type="number" id="f_area_const" placeholder="0" inputmode="decimal" step="0.01"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Frente (m)</label><input type="number" id="f_frente" placeholder="0" inputmode="decimal" step="0.01"></div>
+      <div class="field"><label>Fondo (m)</label><input type="number" id="f_fondo" placeholder="0" inputmode="decimal" step="0.01"></div>
+    </div>
+    <div class="field" style="margin-top:6px">
+      <label>Dependencias por piso</label>
+      <div id="depContainer"></div>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>Tabla de secciones por piso</label>
+      <div id="secContainer"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PLANTAS / DIAGRAMA (justo debajo de medidas) -->
+<div class="card">
+  <div class="card-header"><span>📐 Diagrama de plantas</span></div>
+  <div class="card-body">
+    <div id="editorPlantas"></div>
+  </div>
+</div>
+
 <!-- CONSTRUCCIÓN RURAL -->
 <div class="card">
   <div class="card-header"><span>🏡 Construcción existente</span></div>
   <div class="card-body">
-    <div class="row2">
-      <div class="field"><label>Área construida (m²)</label><input type="number" id="f_area_const" placeholder="0" inputmode="decimal" step="0.01"></div>
-      <div class="field"><label>Vetustez (años aprox.)</label><input type="number" id="f_vetustez" placeholder="0" inputmode="numeric"></div>
-    </div>
+    <div class="field"><label>Vetustez (años aprox.)</label><input type="number" id="f_vetustez" placeholder="0" inputmode="numeric"></div>
     <div class="field"><label>Techo</label>
       <select id="f_techo"><option value="">Seleccionar...</option><option>Teja de fibrocemento</option><option>Teja de zinc</option><option>Teja de barro</option><option>Palma</option><option>Placa maciza</option><option>Sin cubierta</option><option>Otro</option></select>
     </div>
@@ -242,31 +274,6 @@
         <div class="chip" data-val="muy malo">Muy malo</div>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- PLANTAS / DIAGRAMA -->
-<div class="card">
-  <div class="card-header"><span>📐 Diagrama de plantas</span></div>
-  <div class="card-body">
-    <div id="editorPlantas"></div>
-  </div>
-</div>
-
-<!-- TABLA DE SECCIONES -->
-<div class="card">
-  <div class="card-header"><span>📐 Tabla de secciones del predio</span></div>
-  <div class="card-body">
-    <table class="sec-table">
-      <thead><tr><th>Sección</th><th>Largo (m)</th><th>Ancho (m)</th><th>Área (m²)</th></tr></thead>
-      <tbody id="tbodySec">
-        <tr class="total-row"><td style="padding-left:8px;font-size:12px">Total</td><td><input type="number" id="sec_total_l" step="0.01" placeholder="—"></td><td><input type="number" id="sec_total_a" step="0.01" placeholder="—"></td><td><input type="number" id="sec_total_area" step="0.01" placeholder="auto"></td></tr>
-        <tr><td><input type="text" placeholder="Sección 1" class="sec-nom"></td><td><input type="number" step="0.01" class="sec-l" placeholder="0"></td><td><input type="number" step="0.01" class="sec-a" placeholder="0"></td><td><input type="number" step="0.01" class="sec-area" placeholder="auto"></td></tr>
-        <tr><td><input type="text" placeholder="Sección 2" class="sec-nom"></td><td><input type="number" step="0.01" class="sec-l" placeholder="0"></td><td><input type="number" step="0.01" class="sec-a" placeholder="0"></td><td><input type="number" step="0.01" class="sec-area" placeholder="auto"></td></tr>
-        <tr><td><input type="text" placeholder="Sección 3" class="sec-nom"></td><td><input type="number" step="0.01" class="sec-l" placeholder="0"></td><td><input type="number" step="0.01" class="sec-a" placeholder="0"></td><td><input type="number" step="0.01" class="sec-area" placeholder="auto"></td></tr>
-      </tbody>
-    </table>
-    <button class="btn-add-row" onclick="agregarFila()">+ Agregar sección</button>
   </div>
 </div>
 
@@ -304,10 +311,24 @@
 </div>
 
 <script src="planos.js"></script>
+<script src="tablas.js"></script>
 <script src="storage.js"></script>
 <script>
 const SINGLE=['chips_finalidad','chips_estado','chips_cauce_int','chips_cauce_perm','chips_irrigacion','chips_transporte'];
 const editorPlantas = crearEditorPlanos('editorPlantas', '#188038');
+const depMod = crearDependencias('depContainer', 3);
+const secMod = crearSecciones('secContainer', 3, 2);
+
+// Pendiente automático
+function calcularPendiente(){
+  const total=parseFloat(document.getElementById('f_total').value)||0;
+  const anticipo=parseFloat(document.getElementById('f_anticipo').value)||0;
+  const pend=total-anticipo;
+  document.getElementById('f_pendiente').value = pend!==0 ? pend.toFixed(0) : '';
+}
+document.getElementById('f_total').addEventListener('input',calcularPendiente);
+document.getElementById('f_anticipo').addEventListener('input',calcularPendiente);
+
 document.querySelectorAll('.chip').forEach(c=>{
   c.addEventListener('click',function(){
     const gId=this.closest('.chip-group').id;
@@ -317,27 +338,8 @@ document.querySelectorAll('.chip').forEach(c=>{
   });
 });
 
-document.getElementById('tbodySec').addEventListener('input',e=>{
-  const row=e.target.closest('tr');
-  if(!row||row.classList.contains('total-row'))return;
-  const l=parseFloat(row.querySelector('.sec-l')?.value)||0;
-  const a=parseFloat(row.querySelector('.sec-a')?.value)||0;
-  const areaEl=row.querySelector('.sec-area');
-  if(areaEl&&l&&a)areaEl.value=(l*a).toFixed(2);
-  updateProgress();
-});
-
-function agregarFila(){
-  const tbody=document.getElementById('tbodySec');
-  const n=tbody.querySelectorAll('tr:not(.total-row)').length+1;
-  const tr=document.createElement('tr');
-  tr.innerHTML=`<td><input type="text" placeholder="Sección ${n}" class="sec-nom"></td><td><input type="number" step="0.01" class="sec-l" placeholder="0"></td><td><input type="number" step="0.01" class="sec-a" placeholder="0"></td><td><input type="number" step="0.01" class="sec-area" placeholder="auto"></td>`;
-  tbody.appendChild(tr);
-}
-
 function getChips(id){return[...document.querySelectorAll('#'+id+' .chip.active')].map(c=>c.dataset.val).join(', ');}
 function getServicios(){const p=getChips('chips_servicios').split(', ').filter(Boolean);if(!p.length)return'';if(p.length===1)return p[0];return p.slice(0,-1).join(', ')+' y '+p[p.length-1];}
-function getSecciones(){return[...document.querySelectorAll('#tbodySec tr:not(.total-row)')].map(tr=>{const nom=tr.querySelector('.sec-nom')?.value?.trim();const l=tr.querySelector('.sec-l')?.value;const a=tr.querySelector('.sec-a')?.value;const area=tr.querySelector('.sec-area')?.value;if(nom||l||a)return{seccion:nom,largo:parseFloat(l)||0,ancho:parseFloat(a)||0,area:parseFloat(area)||0};return null;}).filter(Boolean);}
 function toExcelDate(s){if(!s)return'';const d=new Date(s+'T00:00:00');if(isNaN(d))return s;return Math.round((d-new Date(1899,11,30))/86400000);}
 
 const provinciaMap={'Tunja':'Centro','Cómbita':'Centro','Cucaita':'Centro','Chivatá':'Centro','Motavita':'Centro','Oicatá':'Centro','Siachoque':'Centro','Samacá':'Centro','Sora':'Centro','Soracá':'Centro','Toca':'Centro','Tuta':'Centro','Ventaquemada':'Centro','Duitama':'Tundama','Paipa':'Tundama','Belén':'Tundama','Busbanzá':'Tundama','Cerinza':'Tundama','Corrales':'Tundama','Floresta':'Tundama','Santa Rosa de Viterbo':'Tundama','Tutazá':'Tundama','Sogamoso':'Sugamuxi','Aquitania':'Sugamuxi','Cuítiva':'Sugamuxi','Firavitoba':'Sugamuxi','Gámeza':'Sugamuxi','Iza':'Sugamuxi','Mongua':'Sugamuxi','Monguí':'Sugamuxi','Nobsa':'Sugamuxi','Pesca':'Sugamuxi','Tibasosa':'Sugamuxi','Tópaga':'Sugamuxi','Tota':'Sugamuxi','Chiquinquirá':'Occidente','Pauna':'Occidente','Muzo':'Occidente','Villa de Leyva':'Ricaurte','Ramiriquí':'Márquez','Boyacá':'Márquez','Jenesano':'Márquez','Guateque':'Oriente','Miraflores':'Lengupá','Socha':'Valderrama','Puerto Boyacá':'Manejo especial'};
@@ -355,15 +357,33 @@ async function guardar(){
   const falt=reqs.filter(r=>!document.getElementById(r.id).value.trim());
   if(falt.length){alert('Campos obligatorios:\n'+falt.map(r=>'• '+r.label).join('\n'));document.getElementById(falt[0].id).focus();return;}
 
+  const reg=construirRegistro();
+  const json=JSON.stringify(reg,null,2);
+
+  const odEl=document.getElementById('od_status');odEl.classList.add('show');
+  odEl.textContent='💾 Guardando...';
+  let res;
+  try{ res=await AvaluosStorage.guardar(reg); }catch(e){ res={ok:false}; }
+  if(res && res.metodo==='carpeta') odEl.textContent='✅ Guardado directo en la carpeta de OneDrive';
+  else if(res && res.metodo==='descarga') odEl.textContent='⬇️ Archivo descargado — compártelo a OneDrive desde el celular';
+  else odEl.textContent='⚠️ No se pudo guardar el archivo';
+
+  document.getElementById('json_output').value=json;
+  document.getElementById('export_area').classList.add('show');
+  document.getElementById('toast').classList.add('show');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function construirRegistro(){
   const municipio=document.getElementById('f_municipio').value;
   const fechaVisita=document.getElementById('f_fecha_visita').value;
-
   const reg={
     tipo:'RURAL',
     fecha_visita:toExcelDate(fechaVisita),fecha_visita_texto:fechaVisita,
     contratante:document.getElementById('f_contratante').value,
-    anticipo:parseFloat(document.getElementById('f_anticipo').value)||0,
     total:parseFloat(document.getElementById('f_total').value)||0,
+    anticipo:parseFloat(document.getElementById('f_anticipo').value)||0,
+    pendiente:parseFloat(document.getElementById('f_pendiente').value)||0,
     municipio,departamento:document.getElementById('f_depto').value,
     provincia:provinciaMap[municipio]||'',
     vereda:document.getElementById('f_vereda').value,
@@ -388,14 +408,19 @@ async function guardar(){
     disponibilidad_agua:document.getElementById('env_disp_agua').value,
     servicios:getServicios(),
     transporte_publico:getChips('chips_transporte'),
+    area_lote:parseFloat(document.getElementById('f_area_lote').value)||0,
     area_construida:parseFloat(document.getElementById('f_area_const').value)||0,
+    frente:parseFloat(document.getElementById('f_frente').value)||0,
+    fondo:parseFloat(document.getElementById('f_fondo').value)||0,
+    dependencias:depMod.getData(),
+    secciones:secMod.getData(),
+    area_total_secciones:secMod.getTotal(),
     plantas:editorPlantas.getData(),
     vetustez:parseInt(document.getElementById('f_vetustez').value)||0,
     techo:document.getElementById('f_techo').value,
     muro:document.getElementById('f_muro').value,
     piso:document.getElementById('f_piso').value,
     estado_conservacion:getChips('chips_estado'),
-    secciones:getSecciones(),
     propietario:document.getElementById('f_propietario').value,
     matricula:document.getElementById('f_matricula').value,
     codigo_catastral:document.getElementById('f_codigo_cat').value,
@@ -405,31 +430,50 @@ async function guardar(){
     consideraciones:document.getElementById('f_consideraciones').value,
     fecha_guardado:new Date().toLocaleString('es-CO')
   };
-
-  const json=JSON.stringify(reg,null,2);
-  const nombre=`rural_${municipio.replace(/\s/g,'_')}_${fechaVisita}.json`;
-  reg.nombre_archivo=nombre;
-
+  reg.nombre_archivo=nombreArchivo(reg);
   const params=new URLSearchParams(location.search);
   const editId=params.get('edit');
   if(editId) reg.id=editId;
-
-  const odEl=document.getElementById('od_status');odEl.classList.add('show');
-  odEl.textContent='💾 Guardando...';
-  let res;
-  try{ res=await AvaluosStorage.guardar(reg); }catch(e){ res={ok:false}; }
-  if(res && res.metodo==='carpeta') odEl.textContent='✅ Guardado directo en la carpeta de OneDrive';
-  else if(res && res.metodo==='descarga') odEl.textContent='⬇️ Archivo descargado — compártelo a OneDrive desde el celular';
-  else odEl.textContent='⚠️ No se pudo guardar el archivo';
-
-  document.getElementById('json_output').value=json;
-  document.getElementById('export_area').classList.add('show');
-  document.getElementById('toast').classList.add('show');
-  window.scrollTo({top:0,behavior:'smooth'});
+  return reg;
 }
 
+// Esquema: rural_Municipio_Vereda_Contratante_Fecha
+function nombreArchivo(reg){
+  const limpia=s=>(s||'').toString().trim().replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
+  const partes=['rural',limpia(reg.municipio),limpia(reg.vereda),limpia(reg.contratante),reg.fecha_visita_texto||''];
+  return partes.filter(Boolean).join('_')+'.json';
+}
+
+function camposMinimos(){
+  return document.getElementById('f_municipio').value.trim() &&
+         document.getElementById('f_contratante').value.trim() &&
+         document.getElementById('f_fecha_visita').value.trim();
+}
+
+let yaAutoguardado=false;
+async function autoguardar(){
+  if(yaAutoguardado) return;
+  if(!camposMinimos()) return;
+  yaAutoguardado=true;
+  try{ const reg=construirRegistro(); reg.autoguardado=true; await AvaluosStorage.guardar(reg,{silencioso:true}); }catch(e){}
+}
+window.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') autoguardar(); });
+window.addEventListener('pagehide', autoguardar);
+window.addEventListener('beforeunload', ()=>{ if(camposMinimos()){ try{ const reg=construirRegistro(); reg.autoguardado=true; AvaluosStorage.guardarLocalSync(reg); }catch(e){} } });
+
 function copiar(){const ta=document.getElementById('json_output');ta.select();try{navigator.clipboard.writeText(ta.value);}catch(e){document.execCommand('copy');}const btn=document.getElementById('btn_copy');btn.textContent='✅ Copiado';btn.classList.add('ok');setTimeout(()=>{btn.textContent='📋 Copiar JSON';btn.classList.remove('ok');},2000);}
-function limpiar(){if(!confirm('¿Limpiar el formulario?'))return;document.querySelectorAll('input,select,textarea').forEach(el=>el.value='');document.querySelectorAll('.chip.active').forEach(c=>c.classList.remove('active'));document.getElementById('toast').classList.remove('show');document.getElementById('export_area').classList.remove('show');document.getElementById('od_status').classList.remove('show');document.getElementById('progress').style.width='0%';window.scrollTo({top:0,behavior:'smooth'});}
+function limpiar(){
+  if(!confirm('¿Limpiar el formulario?'))return;
+  document.querySelectorAll('input,select,textarea').forEach(el=>el.value='');
+  document.querySelectorAll('.chip.active').forEach(c=>c.classList.remove('active'));
+  depMod.setData(['','','']); secMod.setData([{piso:'Piso 1',secciones:[]},{piso:'Piso 2',secciones:[]},{piso:'Piso 3',secciones:[]}]);
+  document.getElementById('toast').classList.remove('show');
+  document.getElementById('export_area').classList.remove('show');
+  document.getElementById('od_status').classList.remove('show');
+  document.getElementById('progress').style.width='0%';
+  yaAutoguardado=false;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 
 // ── Cargar datos en modo edición ──
 (async function cargarEdicion(){
@@ -441,7 +485,7 @@ function limpiar(){if(!confirm('¿Limpiar el formulario?'))return;document.query
   if(!d||d.tipo!=='RURAL')return;
   const setV=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v;};
   setV('f_fecha_visita',d.fecha_visita_texto);setV('f_contratante',d.contratante);
-  setV('f_anticipo',d.anticipo);setV('f_total',d.total);
+  setV('f_total',d.total);setV('f_anticipo',d.anticipo);setV('f_pendiente',d.pendiente);
   setV('f_municipio',d.municipio);setV('f_depto',d.departamento);setV('f_vereda',d.vereda);
   setV('f_descripcion_acceso',d.descripcion_acceso);
   setV('env_vias_acceso',d.vias_acceso);setV('env_vias_internas',d.vias_internas);
@@ -450,11 +494,15 @@ function limpiar(){if(!confirm('¿Limpiar el formulario?'))return;document.query
   setV('env_cultivos_act',d.cultivos_actuales);setV('env_cultivos_perm',d.cultivos_permanentes);
   setV('env_pastos',d.pastos);setV('env_bosques',d.bosques);setV('env_explotacion',d.explotacion_economica);
   setV('env_disp_agua',d.disponibilidad_agua);
-  setV('f_area_const',d.area_construida);setV('f_vetustez',d.vetustez);
+  setV('f_area_lote',d.area_lote);setV('f_area_const',d.area_construida);
+  setV('f_frente',d.frente);setV('f_fondo',d.fondo);
+  setV('f_vetustez',d.vetustez);
   setV('f_techo',d.techo);setV('f_muro',d.muro);setV('f_piso',d.piso);
   setV('f_propietario',d.propietario);setV('f_matricula',d.matricula);setV('f_codigo_cat',d.codigo_catastral);
   setV('f_titulo',d.titulo_adquisicion);setV('f_uso_suelo',d.uso_suelo);
   setV('f_afectaciones',d.afectaciones);setV('f_consideraciones',d.consideraciones);
+  if(d.dependencias)depMod.setData(d.dependencias);
+  if(d.secciones)secMod.setData(d.secciones);
   if(d.plantas)editorPlantas.setData(d.plantas);
   const setChip=(grp,val)=>{if(!val)return;val.split(', ').forEach(v=>{document.querySelectorAll('#'+grp+' .chip').forEach(c=>{if(c.dataset.val===v.trim())c.classList.add('active');});});};
   setChip('chips_finalidad',d.finalidad);setChip('chips_estado',d.estado_conservacion);
@@ -465,5 +513,6 @@ function limpiar(){if(!confirm('¿Limpiar el formulario?'))return;document.query
   const h=document.querySelector('.header-text h1');if(h)h.textContent='✏️ Editando avalúo rural';
 })();
 </script>
+<script src="collapse.js"></script>
 </body>
 </html>

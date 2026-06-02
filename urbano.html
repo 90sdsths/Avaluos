@@ -89,6 +89,9 @@
   .od-status { font-size:12px; color:var(--green); margin-top:6px; display:none; }
   .od-status.show { display:block; }
   @media(max-width:380px) { .row2{grid-template-columns:1fr;} .row3{grid-template-columns:1fr 1fr;} }
+  .dep-del,.sx-fdel,.piso-del{background:none;border:none;color:#D93025;font-size:16px;cursor:pointer;padding:2px 6px;line-height:1;}
+  .btn-add-sub{background:none;border:1px dashed #DADCE0;border-radius:6px;color:#5F6368;font-size:11px;padding:5px 8px;cursor:pointer;font-family:inherit;width:100%;}
+  .btn-add-sub:active{background:#F1F3F4;}
 </style>
 </head>
 <body>
@@ -171,36 +174,21 @@
     </div>
     <div class="field" style="margin-top:6px">
       <label>Dependencias por piso</label>
-      <table class="dep-table">
-        <thead><tr><th>Piso</th><th>Descripción de dependencias</th></tr></thead>
-        <tbody>
-          <tr><td>Piso 1</td><td><input type="text" id="dep_p1" placeholder="sala, comedor, cocina, baño..."></td></tr>
-          <tr><td>Piso 2</td><td><input type="text" id="dep_p2" placeholder="habitaciones, baño..."></td></tr>
-          <tr><td>Piso 3</td><td><input type="text" id="dep_p3" placeholder=""></td></tr>
-          <tr><td>Piso 4</td><td><input type="text" id="dep_p4" placeholder=""></td></tr>
-          <tr><td>Piso 5</td><td><input type="text" id="dep_p5" placeholder=""></td></tr>
-        </tbody>
-      </table>
+      <div id="depContainer"></div>
     </div>
 
     <div class="field" style="margin-top:10px">
       <label>Tabla de secciones por piso</label>
-      <table class="section-table" id="tblSecciones">
-        <thead><tr><th>Sección</th><th>Largo (m)</th><th>Ancho (m)</th><th>Área (m²)</th></tr></thead>
-        <tbody id="tbodySec">
-          <tr class="total-row"><td>Total</td><td><input type="number" id="sec_total_largo" step="0.01" placeholder="—"></td><td><input type="number" id="sec_total_ancho" step="0.01" placeholder="—"></td><td><input type="number" id="sec_total_area" step="0.01" placeholder="auto"></td></tr>
-          <tr class="piso-header"><td colspan="4">Piso 1</td></tr>
-          <tr><td><input type="text" placeholder="Sección" class="sec-nom"></td><td><input type="number" step="0.01" class="sec-largo" placeholder="0"></td><td><input type="number" step="0.01" class="sec-ancho" placeholder="0"></td><td><input type="number" step="0.01" class="sec-area" placeholder="auto"></td></tr>
-          <tr><td><input type="text" placeholder="Sección" class="sec-nom"></td><td><input type="number" step="0.01" class="sec-largo" placeholder="0"></td><td><input type="number" step="0.01" class="sec-ancho" placeholder="0"></td><td><input type="number" step="0.01" class="sec-area" placeholder="auto"></td></tr>
-          <tr class="piso-header"><td colspan="4">Piso 2</td></tr>
-          <tr><td><input type="text" placeholder="Sección" class="sec-nom"></td><td><input type="number" step="0.01" class="sec-largo" placeholder="0"></td><td><input type="number" step="0.01" class="sec-ancho" placeholder="0"></td><td><input type="number" step="0.01" class="sec-area" placeholder="auto"></td></tr>
-          <tr><td><input type="text" placeholder="Sección" class="sec-nom"></td><td><input type="number" step="0.01" class="sec-largo" placeholder="0"></td><td><input type="number" step="0.01" class="sec-ancho" placeholder="0"></td><td><input type="number" step="0.01" class="sec-area" placeholder="auto"></td></tr>
-          <tr class="piso-header"><td colspan="4">Piso 3</td></tr>
-          <tr><td><input type="text" placeholder="Sección" class="sec-nom"></td><td><input type="number" step="0.01" class="sec-largo" placeholder="0"></td><td><input type="number" step="0.01" class="sec-ancho" placeholder="0"></td><td><input type="number" step="0.01" class="sec-area" placeholder="auto"></td></tr>
-        </tbody>
-      </table>
-      <button class="btn-add-row" onclick="agregarFila()">+ Agregar fila</button>
+      <div id="secContainer"></div>
     </div>
+  </div>
+</div>
+
+<!-- PLANTAS / DIAGRAMA (justo debajo de medidas) -->
+<div class="card">
+  <div class="card-header"><span>📐 Diagrama de plantas</span></div>
+  <div class="card-body">
+    <div id="editorPlantas"></div>
   </div>
 </div>
 
@@ -242,14 +230,6 @@
     <div class="field"><label>Uso de suelo</label>
       <select id="f_uso_suelo"><option value="">Seleccionar...</option><option>Residencial</option><option>Comercial</option><option>Industrial</option><option>Residencial y comercial</option><option>Expansión urbana</option><option>Habitacional</option></select>
     </div>
-  </div>
-</div>
-
-<!-- PLANTAS / DIAGRAMA -->
-<div class="card">
-  <div class="card-header"><span>📐 Diagrama de plantas</span></div>
-  <div class="card-body">
-    <div id="editorPlantas"></div>
   </div>
 </div>
 
@@ -303,12 +283,16 @@
 </div>
 
 <script src="planos.js"></script>
+<script src="tablas.js"></script>
 <script src="storage.js"></script>
 <script>
 const SINGLE_CHIPS = ['chips_finalidad','chips_estado','chips_transporte'];
 
 // Editor de plantas
 const editorPlantas = crearEditorPlanos('editorPlantas', '#1A73E8');
+// Tablas dinámicas (3 pisos por defecto, 2 secciones por piso)
+const depMod = crearDependencias('depContainer', 3);
+const secMod = crearSecciones('secContainer', 3, 2);
 
 // Cálculo automático de pendiente = total - anticipo
 function calcularPendiente(){
@@ -329,24 +313,6 @@ document.querySelectorAll('.chip').forEach(c => {
   });
 });
 
-// Auto-calcular área en tabla de secciones
-document.getElementById('tbodySec').addEventListener('input', e => {
-  const row = e.target.closest('tr');
-  if (!row || row.classList.contains('piso-header') || row.classList.contains('total-row')) return;
-  const largo = parseFloat(row.querySelector('.sec-largo')?.value) || 0;
-  const ancho = parseFloat(row.querySelector('.sec-ancho')?.value) || 0;
-  const areaCell = row.querySelector('.sec-area');
-  if (areaCell && largo && ancho) areaCell.value = (largo * ancho).toFixed(2);
-  updateProgress();
-});
-
-function agregarFila() {
-  const tbody = document.getElementById('tbodySec');
-  const tr = document.createElement('tr');
-  tr.innerHTML = '<td><input type="text" placeholder="Sección" class="sec-nom"></td><td><input type="number" step="0.01" class="sec-largo" placeholder="0"></td><td><input type="number" step="0.01" class="sec-ancho" placeholder="0"></td><td><input type="number" step="0.01" class="sec-area" placeholder="auto"></td>';
-  tbody.appendChild(tr);
-}
-
 function getChips(id) {
   return [...document.querySelectorAll('#'+id+' .chip.active')].map(c=>c.dataset.val).join(', ');
 }
@@ -355,19 +321,6 @@ function getServicios() {
   if (!parts.length) return '';
   if (parts.length === 1) return parts[0];
   return parts.slice(0,-1).join(', ') + ' y ' + parts[parts.length-1];
-}
-function getSecciones() {
-  const rows = [];
-  document.querySelectorAll('#tbodySec tr').forEach(tr => {
-    if (tr.classList.contains('total-row')) return;
-    if (tr.classList.contains('piso-header')) { rows.push({tipo:'piso', piso: tr.cells[0].textContent.trim()}); return; }
-    const nom = tr.querySelector('.sec-nom')?.value?.trim();
-    const largo = tr.querySelector('.sec-largo')?.value;
-    const ancho = tr.querySelector('.sec-ancho')?.value;
-    const area = tr.querySelector('.sec-area')?.value;
-    if (nom || largo || ancho) rows.push({seccion:nom, largo:parseFloat(largo)||0, ancho:parseFloat(ancho)||0, area:parseFloat(area)||0});
-  });
-  return rows;
 }
 
 const provinciaMap = {
@@ -398,9 +351,28 @@ async function guardar(){
   const falt=reqs.filter(r=>!document.getElementById(r.id).value.trim());
   if(falt.length){alert('Campos obligatorios:\n'+falt.map(r=>'• '+r.label).join('\n'));document.getElementById(falt[0].id).focus();return;}
 
+  const reg=construirRegistro();
+  const json=JSON.stringify(reg,null,2);
+
+  const odEl=document.getElementById('od_status');
+  odEl.classList.add('show');
+  odEl.textContent='💾 Guardando...';
+  let res;
+  try{ res=await AvaluosStorage.guardar(reg); }catch(e){ res={ok:false}; }
+  if(res && res.metodo==='carpeta') odEl.textContent='✅ Guardado directo en la carpeta de OneDrive';
+  else if(res && res.metodo==='descarga') odEl.textContent='⬇️ Archivo descargado — compártelo a OneDrive desde el celular';
+  else odEl.textContent='⚠️ No se pudo guardar el archivo';
+
+  document.getElementById('json_output').value=json;
+  document.getElementById('export_area').classList.add('show');
+  document.getElementById('toast').classList.add('show');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// Construye el objeto registro a partir del formulario
+function construirRegistro(){
   const municipio=document.getElementById('f_municipio').value;
   const fechaVisita=document.getElementById('f_fecha_visita').value;
-
   const reg={
     tipo:'URBANO',
     fecha_visita:toExcelDate(fechaVisita), fecha_visita_texto:fechaVisita,
@@ -418,8 +390,9 @@ async function guardar(){
     frente:parseFloat(document.getElementById('f_frente').value)||0,
     fondo:parseFloat(document.getElementById('f_fondo').value)||0,
     estrato:document.getElementById('f_estrato').value,
-    dependencias:{piso1:document.getElementById('dep_p1').value,piso2:document.getElementById('dep_p2').value,piso3:document.getElementById('dep_p3').value,piso4:document.getElementById('dep_p4').value,piso5:document.getElementById('dep_p5').value},
-    secciones:getSecciones(),
+    dependencias:depMod.getData(),
+    secciones:secMod.getData(),
+    area_total_secciones:secMod.getTotal(),
     finalidad:getChips('chips_finalidad'),
     techo:document.getElementById('f_techo').value,
     muro:document.getElementById('f_muro').value,
@@ -440,31 +413,38 @@ async function guardar(){
     impacto_ambiental:'no presenta condiciones que afecten o deterioren el medio ambiente.',
     fecha_guardado:new Date().toLocaleString('es-CO')
   };
-
-  const json=JSON.stringify(reg,null,2);
-  const nombre=`urbano_${municipio.replace(/\s/g,'_')}_${fechaVisita}.json`;
-  reg.nombre_archivo=nombre;
-
-  // Si estamos editando, conservar el mismo id para sobrescribir
+  reg.nombre_archivo=nombreArchivo(reg);
   const params=new URLSearchParams(location.search);
   const editId=params.get('edit');
   if(editId) reg.id=editId;
-
-  // Guardar: carpeta OneDrive (portátil) o descarga (móvil) + copia local
-  const odEl=document.getElementById('od_status');
-  odEl.classList.add('show');
-  odEl.textContent='💾 Guardando...';
-  let res;
-  try{ res=await AvaluosStorage.guardar(reg); }catch(e){ res={ok:false}; }
-  if(res && res.metodo==='carpeta') odEl.textContent='✅ Guardado directo en la carpeta de OneDrive';
-  else if(res && res.metodo==='descarga') odEl.textContent='⬇️ Archivo descargado — compártelo a OneDrive desde el celular';
-  else odEl.textContent='⚠️ No se pudo guardar el archivo';
-
-  document.getElementById('json_output').value=json;
-  document.getElementById('export_area').classList.add('show');
-  document.getElementById('toast').classList.add('show');
-  window.scrollTo({top:0,behavior:'smooth'});
+  return reg;
 }
+
+// Esquema de nombre: urbano_Municipio_Vereda_Contratante_Fecha (urbano no tiene vereda)
+function nombreArchivo(reg){
+  const limpia=s=>(s||'').toString().trim().replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
+  const partes=['urbano',limpia(reg.municipio),limpia(reg.contratante),reg.fecha_visita_texto||''];
+  return partes.filter(Boolean).join('_')+'.json';
+}
+
+// ¿Están los campos mínimos para nombrar el archivo?
+function camposMinimos(){
+  return document.getElementById('f_municipio').value.trim() &&
+         document.getElementById('f_contratante').value.trim() &&
+         document.getElementById('f_fecha_visita').value.trim();
+}
+
+// ── Autoguardado antes de cerrar/actualizar ──
+let yaAutoguardado=false;
+async function autoguardar(){
+  if(yaAutoguardado) return;
+  if(!camposMinimos()) return;
+  yaAutoguardado=true;
+  try{ const reg=construirRegistro(); reg.autoguardado=true; await AvaluosStorage.guardar(reg,{silencioso:true}); }catch(e){}
+}
+window.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') autoguardar(); });
+window.addEventListener('pagehide', autoguardar);
+window.addEventListener('beforeunload', ()=>{ if(camposMinimos()){ try{ const reg=construirRegistro(); reg.autoguardado=true; AvaluosStorage.guardarLocalSync(reg); }catch(e){} } });
 
 function copiar(){
   const ta=document.getElementById('json_output');ta.select();
@@ -476,10 +456,12 @@ function limpiar(){
   if(!confirm('¿Limpiar el formulario?'))return;
   document.querySelectorAll('input,select,textarea').forEach(el=>el.value='');
   document.querySelectorAll('.chip.active').forEach(c=>c.classList.remove('active'));
+  depMod.setData(['','','']); secMod.setData([{piso:'Piso 1',secciones:[]},{piso:'Piso 2',secciones:[]},{piso:'Piso 3',secciones:[]}]);
   document.getElementById('toast').classList.remove('show');
   document.getElementById('export_area').classList.remove('show');
   document.getElementById('od_status').classList.remove('show');
   document.getElementById('progress').style.width='0%';
+  yaAutoguardado=false;
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -502,7 +484,8 @@ function limpiar(){
   setV('f_matricula',d.matricula);setV('f_codigo_cat',d.codigo_catastral);setV('f_titulo',d.titulo_adquisicion);
   setV('f_afectaciones',d.afectaciones);setV('f_estabilidad',d.estabilidad_suelo);
   setV('f_servidumbres',d.servidumbres);setV('f_consideraciones',d.consideraciones);
-  if(d.dependencias){setV('dep_p1',d.dependencias.piso1);setV('dep_p2',d.dependencias.piso2);setV('dep_p3',d.dependencias.piso3);setV('dep_p4',d.dependencias.piso4);setV('dep_p5',d.dependencias.piso5);}
+  if(d.dependencias)depMod.setData(d.dependencias);
+  if(d.secciones)secMod.setData(d.secciones);
   if(d.plantas)editorPlantas.setData(d.plantas);
   const setChip=(grp,val)=>{if(!val)return;val.split(', ').forEach(v=>{document.querySelectorAll('#'+grp+' .chip').forEach(c=>{if(c.dataset.val===v)c.classList.add('active');});});};
   setChip('chips_finalidad',d.finalidad);setChip('chips_estado',d.estado_conservacion);setChip('chips_transporte',d.transporte_publico);
@@ -511,5 +494,6 @@ function limpiar(){
   const h=document.querySelector('.header-text h1');if(h)h.textContent='✏️ Editando avalúo urbano';
 })();
 </script>
+<script src="collapse.js"></script>
 </body>
 </html>

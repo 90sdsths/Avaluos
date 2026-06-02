@@ -112,30 +112,38 @@
     },
 
     // Guarda registro: copia local + carpeta/descarga
-    async guardar(registro){
+    // opts.silencioso=true → no descarga (usado por autoguardado)
+    async guardar(registro, opts){
+      opts = opts || {};
       registro.id = registro.id || ('avaluo_'+Date.now());
       registro.fecha_guardado = new Date().toLocaleString('es-CO');
       // copia local para edición
       await idbPut(STORE_REG, registro);
+      // copia de respaldo en localStorage (para recuperación rápida)
+      try{ localStorage.setItem('ultimo_autoguardado', JSON.stringify(registro)); }catch(e){}
 
       const contenido=JSON.stringify(registro,null,2);
       const nombre=registro.nombre_archivo || (registro.id+'.json');
 
-      let metodo='descarga';
+      let metodo='local';
       // 1. intentar carpeta directa (escritorio)
       if(FSA && await this.tieneCarpeta()){
-        if(await escribirEnCarpeta(nombre, contenido)){ metodo='carpeta'; return {ok:true, metodo:metodo}; }
+        if(await escribirEnCarpeta(nombre, contenido)){ return {ok:true, metodo:'carpeta'}; }
       }
-      // 2. móvil: intentar compartir; si no, descargar
-      const esMovil=/Android|iPhone|iPad/i.test(navigator.userAgent);
-      if(esMovil){
-        descargar(nombre, contenido); // siempre deja copia en Descargas
-        metodo='descarga';
-      } else {
-        descargar(nombre, contenido);
-        metodo='descarga';
-      }
-      return {ok:true, metodo:metodo};
+      // 2. en autoguardado silencioso no descargamos
+      if(opts.silencioso){ return {ok:true, metodo:'local'}; }
+      // 3. descargar (móvil o escritorio sin carpeta)
+      descargar(nombre, contenido);
+      return {ok:true, metodo:'descarga'};
+    },
+
+    // Guarda solo la copia local de forma inmediata (para beforeunload)
+    guardarLocalSync(registro){
+      registro.id = registro.id || ('avaluo_'+Date.now());
+      registro.fecha_guardado = new Date().toLocaleString('es-CO');
+      try{ localStorage.setItem('ultimo_autoguardado', JSON.stringify(registro)); }catch(e){}
+      // intento async hacia IndexedDB (puede o no completar)
+      try{ idbPut(STORE_REG, registro); }catch(e){}
     },
 
     async compartirArchivo(nombre, contenido){ return compartir(nombre, contenido); },
