@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1A73E8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Avalúos">
+<link rel="manifest" href="manifest.json">
+<title>Avalúos — Sistema de Registro</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  :root{--blue:#1A73E8;--blue-dark:#1557B0;--blue-light:#E8F0FE;--green:#188038;--green-light:#E6F4EA;--amber:#E37400;--amber-light:#FEF3E2;--purple:#7B3FF2;--purple-light:#F0E9FE;--gray:#5F6368;--gray-light:#F1F3F4;--gray-border:#DADCE0;--text:#202124;--white:#FFFFFF;}
+  html,body{height:100%;}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#F8F9FA;color:var(--text);display:flex;flex-direction:column;min-height:100vh;}
+  header{background:var(--blue);color:white;padding:20px 20px 28px;text-align:center;}
+  .logo{font-size:40px;margin-bottom:8px;}
+  header h1{font-size:22px;font-weight:700;}
+  header p{font-size:13px;opacity:0.85;margin-top:4px;}
+  .container{flex:1;max-width:480px;margin:0 auto;padding:20px 16px;width:100%;}
+  .section-title{font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;margin-top:4px;}
+  .card-btn{display:flex;align-items:center;gap:16px;background:white;border:1.5px solid var(--gray-border);border-radius:12px;padding:18px 16px;margin-bottom:12px;cursor:pointer;text-decoration:none;color:var(--text);transition:all 0.15s;-webkit-tap-highlight-color:transparent;box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+  .card-btn:active{transform:scale(0.97);background:var(--gray-light);}
+  .card-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
+  .card-icon.urban{background:var(--blue-light);}
+  .card-icon.rural{background:var(--green-light);}
+  .card-icon.list{background:var(--purple-light);}
+  .card-text{flex:1;}
+  .card-text strong{display:block;font-size:16px;font-weight:600;margin-bottom:3px;}
+  .card-text span{font-size:13px;color:var(--gray);}
+  .card-arrow{font-size:20px;color:var(--gray);opacity:0.5;}
+  .divider{height:1px;background:var(--gray-border);margin:20px 0;}
+  .folder-card{background:white;border:1.5px solid var(--gray-border);border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+  .folder-card .fc-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .folder-card .fc-head strong{font-size:14px;}
+  .folder-card p{font-size:12px;color:var(--gray);line-height:1.4;margin-bottom:10px;}
+  .btn-folder{width:100%;padding:11px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .btn-folder:active{background:var(--blue-dark);}
+  .btn-folder.ok{background:var(--green-light);color:var(--green);border:1px solid var(--green);}
+  .status-line{font-size:12px;margin-top:8px;display:flex;align-items:center;gap:6px;}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--gray-border);}
+  .status-dot.on{background:var(--green);}
+  .install-banner{background:var(--amber-light);border-left:4px solid var(--amber);padding:12px 16px;margin-bottom:16px;border-radius:8px;font-size:13px;display:none;}
+  .install-banner.show{display:block;}
+  .install-banner strong{display:block;margin-bottom:3px;color:var(--amber);}
+  .btn-install{margin-top:8px;padding:7px 14px;border-radius:7px;border:none;background:var(--amber);color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">📋</div>
+  <h1>Sistema de Avalúos</h1>
+  <p>Boyacá — Registro de visitas de campo</p>
+</header>
+
+<div class="container">
+  <div class="install-banner" id="installBanner">
+    <strong>💡 Instalar como app</strong>
+    Toca el botón para agregar a tu pantalla de inicio.
+    <br><button class="btn-install" id="btnInstall">Instalar app</button>
+  </div>
+
+  <p class="section-title">Nuevo registro</p>
+
+  <a class="card-btn" href="urbano.html">
+    <div class="card-icon urban">🏙️</div>
+    <div class="card-text"><strong>Avalúo Urbano</strong><span>Predios urbanos, apartamentos, locales</span></div>
+    <span class="card-arrow">›</span>
+  </a>
+
+  <a class="card-btn" href="rural.html">
+    <div class="card-icon rural">🌿</div>
+    <div class="card-text"><strong>Avalúo Rural</strong><span>Fincas, lotes rurales, cultivos</span></div>
+    <span class="card-arrow">›</span>
+  </a>
+
+  <div class="divider"></div>
+  <p class="section-title">Registros</p>
+
+  <a class="card-btn" href="registros.html">
+    <div class="card-icon list">🗂️</div>
+    <div class="card-text"><strong>Mis registros guardados</strong><span id="countTxt">Ver y editar avalúos guardados</span></div>
+    <span class="card-arrow">›</span>
+  </a>
+
+  <div class="divider"></div>
+  <p class="section-title">Carpeta de destino</p>
+
+  <div class="folder-card">
+    <div class="fc-head"><span style="font-size:22px">📁</span><strong>Guardar en OneDrive</strong></div>
+    <p id="folderDesc">En el portátil puedes elegir la carpeta de OneDrive una vez y los JSON se guardarán ahí directamente. En el celular el archivo se descarga para compartirlo a OneDrive.</p>
+    <button class="btn-folder" id="btnFolder" onclick="elegirCarpeta()">Elegir carpeta de destino</button>
+    <div class="status-line"><span class="status-dot" id="folderDot"></span><span id="folderStatus">Carpeta no configurada</span></div>
+  </div>
+</div>
+
+<script src="storage.js"></script>
+<script>
+async function refrescarEstado(){
+  const dot=document.getElementById('folderDot');
+  const st=document.getElementById('folderStatus');
+  const btn=document.getElementById('btnFolder');
+  const desc=document.getElementById('folderDesc');
+  if(!AvaluosStorage.soportaCarpeta){
+    desc.textContent='Este dispositivo (móvil) no permite escribir en una carpeta directamente. Los JSON se descargan y puedes compartirlos a la app de OneDrive. Para guardado directo usa el portátil.';
+    btn.style.display='none';
+    st.textContent='Modo descarga (móvil)'; dot.classList.add('on'); return;
+  }
+  if(await AvaluosStorage.tieneCarpeta()){
+    dot.classList.add('on'); st.textContent='Carpeta configurada ✓';
+    btn.textContent='Cambiar carpeta'; btn.classList.add('ok');
+  } else { dot.classList.remove('on'); st.textContent='Carpeta no configurada'; }
+  try{ const regs=await AvaluosStorage.listar(); if(regs.length) document.getElementById('countTxt').textContent=regs.length+' registro(s) guardado(s)'; }catch(e){}
+}
+async function elegirCarpeta(){
+  const ok=await AvaluosStorage.elegirCarpeta();
+  if(ok) alert('Carpeta configurada. Los próximos registros se guardarán ahí directamente.');
+  refrescarEstado();
+}
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('installBanner').classList.add('show');});
+document.getElementById('btnInstall').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;document.getElementById('installBanner').classList.remove('show');deferredPrompt=null;});
+refrescarEstado();
+</script>
+</body>
+</html>
