@@ -42,25 +42,22 @@
   .stats .row-s{display:flex;justify-content:space-between;gap:10px;padding:1px 0;}
   .stats .v{font-weight:700;color:#7CFC7C;}
 
-  /* Barra inferior de acciones */
-  .bottom{position:fixed;left:0;right:0;bottom:0;z-index:1000;padding:8px 8px calc(env(safe-area-inset-bottom) + 8px);display:flex;flex-direction:column;gap:8px;pointer-events:none;}
-  .bottom .grp{display:flex;gap:7px;justify-content:center;pointer-events:none;}
-  .fbtn{pointer-events:auto;padding:9px 11px;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#fff;white-space:nowrap;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:5px;}
+  /* Columna vertical de acciones (abajo izquierda) */
+  .action-col{position:fixed;left:8px;bottom:calc(env(safe-area-inset-bottom) + 10px);z-index:1000;display:flex;flex-direction:column;gap:7px;align-items:flex-start;}
+  .fbtn{padding:9px 12px;border-radius:11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#fff;white-space:nowrap;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:6px;border:none;width:118px;}
   .fbtn:active{transform:scale(0.95);}
   .fbtn.primary{background:rgba(24,128,56,0.9);}
   .fbtn.blue{background:rgba(26,115,232,0.9);}
-  .fbtn.red-solid{background:rgba(217,48,37,0.9);}
   .fbtn.tracking{background:rgba(217,48,37,0.95);color:#fff;animation:pulse 1.2s infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
-  .fbtn.icon{padding:9px 12px;}
 
-  /* Panel de herramientas (hoja inferior) */
-  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:2000;border-radius:18px 18px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom) + 16px);transform:translateY(110%);transition:transform 0.25s;}
+  /* Panel de herramientas (hoja inferior) — estilo claro compacto */
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:2000;border-radius:18px 18px 0 0;padding:14px 12px calc(env(safe-area-inset-bottom) + 14px);transform:translateY(110%);transition:transform 0.25s;}
   .sheet.show{transform:translateY(0);}
-  .sheet h3{font-size:14px;margin-bottom:12px;display:flex;align-items:center;}
+  .sheet h3{font-size:13px;margin-bottom:10px;display:flex;align-items:center;color:var(--text);}
   .sheet h3 .close{margin-left:auto;cursor:pointer;font-size:20px;color:#888;}
-  .sheet .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .sheet .fbtn{justify-content:center;background:rgba(0,0,0,0.05);color:var(--text);}
+  .sheet .grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .sheet .fbtn{justify-content:flex-start;background:rgba(0,0,0,0.05);color:var(--text);width:auto;padding:9px 10px;font-size:12px;border-radius:9px;}
   .backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:1999;display:none;}
   .backdrop.show{display:block;}
 
@@ -106,15 +103,14 @@
 <!-- Mensaje flotante -->
 <div class="hint-float" id="hintFloat"></div>
 
-<!-- Barra inferior -->
-<div class="bottom">
-  <div class="grp">
-    <button class="fbtn primary glass-dark" id="btnGps">▶ GPS</button>
-    <button class="fbtn blue glass-dark" id="btnMarcar">📍 Marcar</button>
-    <button class="fbtn glass-dark" id="btnAuto">🚶 Auto</button>
-    <button class="fbtn glass-dark" id="btnDeshacer">↶</button>
-    <button class="fbtn glass-dark icon" id="btnTools">⋮</button>
-  </div>
+<!-- Botones de acción en columna vertical (abajo izquierda) -->
+<div class="action-col">
+  <button class="fbtn primary glass-dark" id="btnGps">▶ GPS</button>
+  <button class="fbtn blue glass-dark" id="btnMarcar">📍 Marcar</button>
+  <button class="fbtn glass-dark" id="btnAuto">🚶 Auto</button>
+  <button class="fbtn glass-dark" id="btnCentrar2">🎯 Centrar</button>
+  <button class="fbtn glass-dark" id="btnDeshacer">↶ Deshacer</button>
+  <button class="fbtn glass-dark icon" id="btnTools">⋮ Más</button>
 </div>
 
 <!-- Hoja de herramientas -->
@@ -122,13 +118,15 @@
 <div class="sheet glass" id="sheet">
   <h3>Herramientas <span class="close" id="sheetClose">✕</span></h3>
   <div class="grid">
-    <button class="fbtn" id="btnPromedio">⊕ Marcar promediando (10s)</button>
-    <button class="fbtn" id="btnDescargar">⬇ Descargar mapa offline</button>
+    <button class="fbtn" id="btnImportKml">📂 Importar KML</button>
+    <button class="fbtn" id="btnImportCoord">🧭 Ir a coordenada</button>
+    <button class="fbtn" id="btnPromedio">⊕ Promediar (10s)</button>
+    <button class="fbtn" id="btnDescargar">⬇ Descargar mapa</button>
     <button class="fbtn" id="btnCapa">🛰 Cambiar capa</button>
     <button class="fbtn" id="btnKml">💾 Exportar KML</button>
     <button class="fbtn" id="btnLimpiar" style="color:var(--red)">🗑 Limpiar todo</button>
-    <button class="fbtn" id="btnCentrar">🎯 Centrar en mí</button>
   </div>
+  <input type="file" id="kmlInput" accept=".kml,.kmz,application/vnd.google-earth.kml+xml" style="display:none">
 </div>
 
 <!-- Modal descarga -->
@@ -442,8 +440,65 @@ function exportarKML(){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'}));a.download='campo_'+new Date().toISOString().slice(0,10)+'.kml';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
-// ---- UI ----
-function abrirSheet(){document.getElementById('sheet').classList.add('show');document.getElementById('backdrop').classList.add('show');}
+// ---- Importar KML ----
+function importarKML(ev){
+  const file=ev.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const txt=e.target.result;
+      const xml=new DOMParser().parseFromString(txt,'text/xml');
+      const coordsTags=xml.getElementsByTagName('coordinates');
+      if(!coordsTags.length){alert('No se encontraron coordenadas en el archivo.');return;}
+      // tomar el primer bloque de coordenadas (polígono o línea)
+      let importados=[];
+      let esPoligono=false;
+      // detectar si hay Polygon
+      if(xml.getElementsByTagName('Polygon').length) esPoligono=true;
+      const raw=coordsTags[0].textContent.trim();
+      raw.split(/\s+/).forEach(tripla=>{
+        const partes=tripla.split(',');
+        if(partes.length>=2){
+          const lng=parseFloat(partes[0]), lat=parseFloat(partes[1]);
+          if(!isNaN(lat)&&!isNaN(lng)) importados.push({lat,lng,acc:null});
+        }
+      });
+      if(importados.length<2){alert('El archivo no contiene una forma válida.');return;}
+      // si es polígono y el último punto = primero, quitar el duplicado de cierre
+      if(esPoligono&&importados.length>2){
+        const a=importados[0], b=importados[importados.length-1];
+        if(Math.abs(a.lat-b.lat)<1e-9&&Math.abs(a.lng-b.lng)<1e-9) importados.pop();
+      }
+      // cambiar a modo campo y cargar
+      modo='campo';
+      document.querySelectorAll('#modoSeg button').forEach(x=>x.classList.remove('on'));
+      document.querySelector('#modoSeg button[data-modo="campo"]').classList.add('on');
+      puntos=importados; rutaPts=[]; puntosSueltos=[];
+      redibujar();
+      if(mapOK){ const grp=L.latLngBounds(puntos.map(p=>[p.lat,p.lng])); map.fitBounds(grp,{padding:[40,40]}); }
+      setHint('✅ KML importado: '+puntos.length+' puntos. Área: '+fmtArea(area(puntos)));
+    }catch(err){ alert('No se pudo leer el KML: '+err.message); }
+    ev.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+// ---- Ir a coordenada (referencia para descargar mapa) ----
+function irACoordenada(){
+  cerrarSheet();
+  const entrada=prompt('Ingresa la coordenada (lat, lon):\nEjemplo: 5.5353, -73.3678','');
+  if(!entrada)return;
+  const m=entrada.split(/[,\s]+/).map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
+  if(m.length<2){alert('Formato no válido. Usa: latitud, longitud');return;}
+  const [lat,lng]=m;
+  if(lat<-90||lat>90||lng<-180||lng>180){alert('Coordenada fuera de rango.');return;}
+  if(mapOK){
+    map.setView([lat,lng],17);
+    L.marker([lat,lng]).addTo(capaMarcadores).bindTooltip('Referencia',{permanent:true,direction:'top'});
+    setHint('📍 Centrado en '+lat.toFixed(5)+', '+lng.toFixed(5)+'. Ahora puedes descargar el mapa de esta zona.');
+  } else alert('El mapa no está activo (sin conexión).');
+}
 function cerrarSheet(){document.getElementById('sheet').classList.remove('show');document.getElementById('backdrop').classList.remove('show');}
 function actualizarBotones(){
   const m=document.getElementById('btnMarcar'),a=document.getElementById('btnAuto');
@@ -474,11 +529,14 @@ document.getElementById('btnPromedio').addEventListener('click',marcarPromedio);
 document.getElementById('btnDeshacer').addEventListener('click',deshacer);
 document.getElementById('btnLimpiar').addEventListener('click',()=>{if(confirm('¿Borrar todo?')){puntos=[];rutaPts=[];puntosSueltos=[];redibujar();cerrarSheet();}});
 document.getElementById('btnKml').addEventListener('click',exportarKML);
-document.getElementById('btnCentrar').addEventListener('click',()=>{cerrarSheet();if(ultimaPos&&mapOK)map.setView([ultimaPos.lat,ultimaPos.lng],18);else alert('Sin posición GPS aún.');});
+document.getElementById('btnCentrar2').addEventListener('click',()=>{if(ultimaPos&&mapOK)map.setView([ultimaPos.lat,ultimaPos.lng],18);else alert('Sin posición GPS aún. Enciende el GPS.');});
 document.getElementById('btnCapa').addEventListener('click',()=>{const o=['satelital','topo','calles'];capaNombre=o[(o.indexOf(capaNombre)+1)%3];if(mapOK){map.removeLayer(capaActual);capaActual=crearCapa(CAPAS[capaNombre]).addTo(map);capaActual.bringToBack();}setHint('Capa: '+capaNombre);cerrarSheet();});
 document.getElementById('btnDescargar').addEventListener('click',()=>{cerrarSheet();document.getElementById('modalDl').classList.add('show');});
 document.getElementById('dlClose').addEventListener('click',()=>document.getElementById('modalDl').classList.remove('show'));
 document.getElementById('dlStart').addEventListener('click',descargarArea);
+document.getElementById('btnImportKml').addEventListener('click',()=>{cerrarSheet();document.getElementById('kmlInput').click();});
+document.getElementById('kmlInput').addEventListener('change',importarKML);
+document.getElementById('btnImportCoord').addEventListener('click',irACoordenada);
 
 actualizarBotones();
 window.addEventListener('load',initMapa);
