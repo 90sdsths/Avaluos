@@ -15,6 +15,7 @@
     document.head.appendChild(st);
   }
   function init(){
+    let primera = true;
     document.querySelectorAll('.card').forEach(card=>{
       const header=card.querySelector('.card-header');
       const body=card.querySelector('.card-body');
@@ -24,6 +25,9 @@
       chev.className='chevron'; chev.textContent='▼';
       header.appendChild(chev);
       header.addEventListener('click',()=>{ card.classList.toggle('collapsed'); });
+      // Todas recogidas por defecto, excepto la primera (Encargo)
+      if(!primera) card.classList.add('collapsed');
+      primera = false;
     });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
