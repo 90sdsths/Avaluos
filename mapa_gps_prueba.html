@@ -16,41 +16,43 @@
   #map{position:fixed;inset:0;width:100%;height:100%;background:#2a2a2a;z-index:1;}
   #canvasFallback{position:fixed;inset:0;width:100%;height:100%;display:none;background:#1a2332;touch-action:none;z-index:1;}
 
-  /* Estilo base de panel flotante translúcido */
+  /* Estilo base de panel flotante translúcido CLARO */
   .glass{background:rgba(255,255,255,0.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 2px 10px rgba(0,0,0,0.25);border:0.5px solid rgba(255,255,255,0.5);}
+  /* Variante OSCURA translúcida */
+  .glass-dark{background:rgba(20,24,30,0.62);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 2px 8px rgba(0,0,0,0.3);border:0.5px solid rgba(255,255,255,0.12);color:#fff;}
 
-  /* Barra superior */
-  .top-bar{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;align-items:flex-start;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 8px) 8px 0;gap:8px;pointer-events:none;}
+  /* Barra superior: GPS + coords + precisión en una fila compacta */
+  .top-bar{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 6px) 6px 0;gap:6px;pointer-events:none;flex-wrap:nowrap;}
   .top-bar > *{pointer-events:auto;}
-  .gps-badge{font-size:11px;padding:6px 10px;border-radius:20px;display:flex;align-items:center;gap:6px;white-space:nowrap;font-weight:600;}
-  .gps-dot{width:9px;height:9px;border-radius:50%;background:#bbb;flex-shrink:0;}
+  .gps-badge{font-size:10px;padding:5px 9px;border-radius:16px;display:flex;align-items:center;gap:5px;white-space:nowrap;font-weight:600;}
+  .gps-dot{width:8px;height:8px;border-radius:50%;background:#bbb;flex-shrink:0;}
   .gps-dot.ok{background:#1db954;box-shadow:0 0 6px #1db954;}
   .gps-dot.warn{background:#E37400;}
   .gps-dot.bad{background:#D93025;}
-  .acc-chip{font-size:11px;padding:6px 10px;border-radius:20px;font-weight:700;white-space:nowrap;}
+  .coord{font-size:10px;padding:5px 8px;border-radius:14px;font-family:monospace;white-space:nowrap;flex:1;text-align:center;min-width:0;overflow:hidden;text-overflow:ellipsis;}
+  .acc-chip{font-size:10px;padding:5px 9px;border-radius:16px;font-weight:700;white-space:nowrap;}
 
   /* Selector de modo (centrado arriba) */
-  .modo-seg{position:fixed;top:calc(env(safe-area-inset-top) + 48px);left:50%;transform:translateX(-50%);z-index:1000;display:flex;border-radius:22px;overflow:hidden;}
-  .modo-seg button{padding:9px 14px;border:none;background:transparent;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#444;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+  .modo-seg{position:fixed;top:calc(env(safe-area-inset-top) + 42px);left:50%;transform:translateX(-50%);z-index:1000;display:flex;border-radius:20px;overflow:hidden;}
+  .modo-seg button{padding:8px 13px;border:none;background:transparent;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#eee;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
   .modo-seg button.on{background:var(--green);color:#fff;}
 
-  /* Stats flotante (arriba a la derecha, debajo del modo) */
-  .stats{position:fixed;top:calc(env(safe-area-inset-top) + 92px);right:8px;z-index:1000;border-radius:12px;padding:8px 10px;font-size:11px;min-width:110px;}
+  /* Stats flotante (izquierda, para no chocar con zoom que está a la derecha-abajo) */
+  .stats{position:fixed;top:calc(env(safe-area-inset-top) + 84px);left:8px;z-index:1000;border-radius:12px;padding:7px 10px;font-size:11px;min-width:108px;}
   .stats .row-s{display:flex;justify-content:space-between;gap:10px;padding:1px 0;}
-  .stats .v{font-weight:700;color:var(--green);}
-  .coord{position:fixed;top:calc(env(safe-area-inset-top) + 92px);left:8px;z-index:1000;border-radius:10px;padding:5px 9px;font-size:10px;font-family:monospace;color:#333;max-width:46vw;}
+  .stats .v{font-weight:700;color:#7CFC7C;}
 
   /* Barra inferior de acciones */
   .bottom{position:fixed;left:0;right:0;bottom:0;z-index:1000;padding:8px 8px calc(env(safe-area-inset-bottom) + 8px);display:flex;flex-direction:column;gap:8px;pointer-events:none;}
-  .bottom .grp{display:flex;gap:8px;justify-content:center;pointer-events:none;}
-  .fbtn{pointer-events:auto;padding:11px 12px;border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text);white-space:nowrap;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:6px;}
+  .bottom .grp{display:flex;gap:7px;justify-content:center;pointer-events:none;}
+  .fbtn{pointer-events:auto;padding:9px 11px;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#fff;white-space:nowrap;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;gap:5px;}
   .fbtn:active{transform:scale(0.95);}
-  .fbtn.primary{background:rgba(24,128,56,0.92);color:#fff;}
-  .fbtn.blue{background:rgba(26,115,232,0.92);color:#fff;}
-  .fbtn.red-solid{background:rgba(217,48,37,0.92);color:#fff;}
+  .fbtn.primary{background:rgba(24,128,56,0.9);}
+  .fbtn.blue{background:rgba(26,115,232,0.9);}
+  .fbtn.red-solid{background:rgba(217,48,37,0.9);}
   .fbtn.tracking{background:rgba(217,48,37,0.95);color:#fff;animation:pulse 1.2s infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
-  .fbtn.icon{padding:11px 13px;}
+  .fbtn.icon{padding:9px 12px;}
 
   /* Panel de herramientas (hoja inferior) */
   .sheet{position:fixed;left:0;right:0;bottom:0;z-index:2000;border-radius:18px 18px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom) + 16px);transform:translateY(110%);transition:transform 0.25s;}
@@ -58,7 +60,7 @@
   .sheet h3{font-size:14px;margin-bottom:12px;display:flex;align-items:center;}
   .sheet h3 .close{margin-left:auto;cursor:pointer;font-size:20px;color:#888;}
   .sheet .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .sheet .fbtn{justify-content:center;background:rgba(0,0,0,0.04);}
+  .sheet .fbtn{justify-content:center;background:rgba(0,0,0,0.05);color:var(--text);}
   .backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:1999;display:none;}
   .backdrop.show{display:block;}
 
@@ -72,7 +74,7 @@
   .dl-progress{height:8px;background:#DADCE0;border-radius:4px;overflow:hidden;margin:10px 0;}
   .dl-bar{height:100%;background:var(--green);width:0%;transition:width 0.2s;}
   .m-row{display:flex;gap:8px;}
-  .m-row .fbtn{flex:1;justify-content:center;background:rgba(0,0,0,0.05);}
+  .m-row .fbtn{flex:1;justify-content:center;background:rgba(0,0,0,0.05);color:var(--text);}
   .hint-float{position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom) + 120px);z-index:999;text-align:center;font-size:11px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.8);pointer-events:none;padding:0 10px;line-height:1.4;}
 </style>
 </head>
@@ -80,22 +82,22 @@
 <div id="map"></div>
 <canvas id="canvasFallback"></canvas>
 
-<!-- Barra superior -->
+<!-- Barra superior: GPS · coords · precisión -->
 <div class="top-bar">
-  <div class="gps-badge glass"><span class="gps-dot" id="gpsDot"></span><span id="gpsTxt">GPS apagado</span></div>
-  <div class="acc-chip glass" id="accVal">±— m</div>
+  <div class="gps-badge glass-dark"><span class="gps-dot" id="gpsDot"></span><span id="gpsTxt">GPS</span></div>
+  <div class="coord glass-dark" id="coordVal">sin posición</div>
+  <div class="acc-chip glass-dark" id="accVal">±— m</div>
 </div>
 
 <!-- Selector de modo -->
-<div class="modo-seg glass" id="modoSeg">
+<div class="modo-seg glass-dark" id="modoSeg">
   <button data-modo="campo" class="on">📐 Campo</button>
   <button data-modo="ruta">🚗 Ruta</button>
   <button data-modo="punto">📌 Puntos</button>
 </div>
 
-<!-- Coordenada y stats -->
-<div class="coord glass" id="coordVal">sin posición</div>
-<div class="stats glass">
+<!-- Stats -->
+<div class="stats glass-dark">
   <div class="row-s"><span>Área</span><span class="v" id="stArea">0</span></div>
   <div class="row-s"><span>Perím.</span><span class="v" id="stPerim">0</span></div>
   <div class="row-s"><span>Puntos</span><span class="v" id="stPts">0</span></div>
@@ -107,11 +109,11 @@
 <!-- Barra inferior -->
 <div class="bottom">
   <div class="grp">
-    <button class="fbtn primary glass" id="btnGps">▶ GPS</button>
-    <button class="fbtn blue glass" id="btnMarcar">📍 Marcar</button>
-    <button class="fbtn glass" id="btnAuto">🚶 Auto</button>
-    <button class="fbtn glass" id="btnDeshacer">↶</button>
-    <button class="fbtn glass icon" id="btnTools">⋮</button>
+    <button class="fbtn primary glass-dark" id="btnGps">▶ GPS</button>
+    <button class="fbtn blue glass-dark" id="btnMarcar">📍 Marcar</button>
+    <button class="fbtn glass-dark" id="btnAuto">🚶 Auto</button>
+    <button class="fbtn glass-dark" id="btnDeshacer">↶</button>
+    <button class="fbtn glass-dark icon" id="btnTools">⋮</button>
   </div>
 </div>
 
@@ -233,6 +235,24 @@ function redibujar(){
     const ll=puntos.map(p=>[p.lat,p.lng]);
     if(puntos.length>=3)L.polygon(ll,{color:'#FF6D00',weight:2,fillColor:'#FF6D00',fillOpacity:0.25}).addTo(capaPoligono);
     else L.polyline(ll,{color:'#FF6D00',weight:2}).addTo(capaPoligono);
+
+    // Etiquetas de distancia y puntos intermedios por segmento
+    const cerrado = puntos.length>=3;
+    const nSeg = cerrado ? puntos.length : puntos.length-1;
+    for(let i=0;i<nSeg;i++){
+      const a=puntos[i], b=puntos[(i+1)%puntos.length];
+      const d=distancia(a,b);
+      const midLat=(a.lat+b.lat)/2, midLng=(a.lng+b.lng)/2;
+      // etiqueta de distancia
+      L.marker([midLat,midLng],{icon:iconoDistancia(fmtDist(d)),interactive:false}).addTo(capaMarcadores);
+      // punto intermedio arrastrable (inserta vértice)
+      const mid=L.marker([midLat,midLng],{draggable:true,icon:iconoMidpoint(),zIndexOffset:-100}).addTo(capaMarcadores);
+      const idxInsert=i+1;
+      mid.on('dragstart',ev=>{ puntos.splice(idxInsert,0,{lat:ev.target.getLatLng().lat,lng:ev.target.getLatLng().lng,acc:null}); });
+      mid.on('drag',ev=>{ const p=ev.target.getLatLng(); puntos[idxInsert].lat=p.lat; puntos[idxInsert].lng=p.lng; redibujarSoloPoligono(); });
+      mid.on('dragend',()=>redibujar());
+    }
+    // Vértices reales (numerados, arrastrables)
     puntos.forEach((p,i)=>{
       const m=L.marker([p.lat,p.lng],{draggable:true,icon:iconoVertice(i+1)}).addTo(capaMarcadores);
       m.on('drag',ev=>{const ll2=ev.target.getLatLng();puntos[i].lat=ll2.lat;puntos[i].lng=ll2.lng;redibujarSoloPoligono();});
@@ -248,7 +268,15 @@ function redibujar(){
 
 // Ícono naranja con número del vértice
 function iconoVertice(n){
-  return L.divIcon({className:'',html:`<div style="width:18px;height:18px;background:#FF6D00;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;font-family:sans-serif;">${n}</div>`,iconSize:[18,18],iconAnchor:[9,9]});
+  return L.divIcon({className:'',html:`<div style="width:20px;height:20px;background:#FF6D00;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;font-family:sans-serif;">${n}</div>`,iconSize:[20,20],iconAnchor:[10,10]});
+}
+// Punto intermedio (semitransparente, hueco)
+function iconoMidpoint(){
+  return L.divIcon({className:'',html:`<div style="width:14px;height:14px;background:rgba(255,109,0,0.45);border:2px dashed #fff;border-radius:50%;"></div>`,iconSize:[14,14],iconAnchor:[7,7]});
+}
+// Etiqueta de distancia del segmento
+function iconoDistancia(txt){
+  return L.divIcon({className:'',html:`<div style="background:rgba(20,24,30,0.7);color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:8px;white-space:nowrap;font-family:sans-serif;transform:translateY(-14px);">${txt}</div>`,iconSize:[1,1],iconAnchor:[0,0]});
 }
 
 // Redibuja solo el polígono/línea durante el arrastre (sin recrear marcadores, para fluidez)
@@ -260,9 +288,9 @@ function redibujarSoloPoligono(){
     if(puntos.length>=3)L.polygon(ll,{color:'#FF6D00',weight:2,fillColor:'#FF6D00',fillOpacity:0.25}).addTo(capaPoligono);
     else L.polyline(ll,{color:'#FF6D00',weight:2}).addTo(capaPoligono);
   }
-  // actualizar stats en vivo
   document.getElementById('stArea').textContent=fmtArea(area(puntos));
   document.getElementById('stPerim').textContent=fmtDist(perimetro(puntos,true));
+  document.getElementById('stPts').textContent=puntos.length;
 }
 
 // ---- GPS ----
