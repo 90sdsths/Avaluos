@@ -1,21 +1,20 @@
 // =============================================================
 // EDITOR DE PLANTAS (planos) — táctil, urbano y rural
-// Modelo: cada planta tiene elementos. Un elemento puede ser
-// una forma simple (room, triangle, semi, wall, door, window,
-// stairs) o un GRUPO (tipo 'grupo') que contiene sub-formas
-// con su propia posición y rotación. Los grupos se mueven y
-// redimensionan como conjunto, conservando rotaciones.
+// Modelo de grupos: una forma fusionada conserva sub-formas con
+// su tipo, posición y rotación. Se mueve/redimensiona en conjunto.
+// Color de selección/redimensión: NARANJA fijo.
 // API: crearEditorPlanos(id,color) -> {getData,setData}
 // =============================================================
 
 function crearEditorPlanos(containerId, colorTema) {
   const TEMA = colorTema || '#1A73E8';
+  const SEL = '#FF6D00';          // naranja de selección (fijo)
   const cont = document.getElementById(containerId);
   if (!cont) return null;
 
   let plantas = [{ nombre: 'Piso 1', elementos: [] }];
   let plantaActiva = 0;
-  let seleccion = [];     // ids seleccionados
+  let seleccion = [];
   let modo = null;        // 'mover' | 'resize'
   let offset = { x: 0, y: 0 };
   let resizeBase = null;
@@ -44,7 +43,7 @@ function crearEditorPlanos(containerId, colorTema) {
     <div class="pl-canvas-wrap">
       <svg id="${containerId}_svg" viewBox="0 0 ${VB_W} ${VB_H}" class="pl-svg" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
-    <div class="pl-hint">Toca para seleccionar · arrastra para mover · esquina ● redimensiona · doble toque para renombrar/medida · <b>Fusionar</b>: toca dos formas y pulsa Fusionar (se mueven juntas y conservan su rotación)</div>
+    <div class="pl-hint">Toca para seleccionar · arrastra para mover · esquina ● redimensiona · doble toque para renombrar/medida · <b>Fusionar</b>: toca dos formas y pulsa Fusionar (se mueven juntas y conservan rotación)</div>
   `;
 
   const svg = document.getElementById(containerId + '_svg');
@@ -58,7 +57,7 @@ function crearEditorPlanos(containerId, colorTema) {
     st.textContent = `
       .pl-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center;}
       .pl-tab{padding:6px 12px;border-radius:18px;font-size:12px;border:1.5px solid #DADCE0;background:#fff;color:#5F6368;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:inherit;}
-      .pl-tab.active{background:#E8F0FE;border-color:#1A73E8;color:#1A73E8;font-weight:600;}
+      .pl-tab.active{background:#FFF1E6;border-color:#FF6D00;color:#C75A00;font-weight:600;}
       .pl-tab .x{font-size:14px;opacity:0.6;}
       .pl-tab-add{padding:6px 11px;border-radius:18px;font-size:14px;border:1.5px dashed #DADCE0;background:none;color:#5F6368;cursor:pointer;font-family:inherit;}
       .pl-toolbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
@@ -85,7 +84,6 @@ function crearEditorPlanos(containerId, colorTema) {
     return { x: (clientX - r.left) / r.width * VB_W, y: (clientY - r.top) / r.height * VB_H };
   }
 
-  // ---- Pestañas ----
   function renderTabs() {
     tabsEl.innerHTML = '';
     plantas.forEach((p, i) => {
@@ -127,21 +125,19 @@ function crearEditorPlanos(containerId, colorTema) {
       copiar = confirm('¿Copiar los diagramas del piso actual al nuevo piso?\n\nAceptar = copiar todo\nCancelar = piso vacío (verás el calco del piso anterior de fondo)');
     }
     const nuevos = copiar ? JSON.parse(JSON.stringify(plantas[plantaActiva].elementos)) : [];
-    // reasignar ids para no colisionar
     nuevos.forEach(e => { e.id = 'e' + (idCounter++); });
     plantas.push({ nombre: 'Piso ' + (plantas.length + 1), elementos: nuevos });
     plantaActiva = plantas.length - 1;
     seleccion = []; renderTabs(); render();
   }
 
-  // ---- Dibujo de una sub-forma (devuelve nodos SVG) en un <g> ----
+  // Dibuja una sub-forma. opts.sel, opts.calco
   function dibujarForma(el, opts) {
     opts = opts || {};
-    const sel = opts.sel;
-    const calco = opts.calco;
-    const stroke = calco ? '#8Fb4e8' : (sel ? TEMA : '#444');
-    const sw = calco ? 1.5 : (sel ? 3 : 2.5);
-    const fill = calco ? 'rgba(26,115,232,0.05)' : (sel ? 'rgba(26,115,232,0.12)' : 'rgba(0,0,0,0.03)');
+    const sel = opts.sel, calco = opts.calco;
+    const stroke = calco ? '#8Fb4e8' : (sel ? SEL : '#444');
+    const sw = calco ? 1.5 : (sel ? 3.5 : 2.5);
+    const fill = calco ? 'rgba(26,115,232,0.05)' : (sel ? 'rgba(255,109,0,0.14)' : 'rgba(0,0,0,0.03)');
     const dash = calco ? '5 4' : '';
     const rot = el.rot || 0;
     const cx = el.x + (el.w||30)/2, cy = el.y + (el.h||30)/2;
@@ -158,30 +154,30 @@ function crearEditorPlanos(containerId, colorTema) {
       const d = `M ${el.x} ${el.y+r} A ${r} ${r} 0 0 1 ${el.x+el.w} ${el.y+r} Z`;
       nodes.push(mk('path', {d,fill,stroke,'stroke-width':sw,'stroke-dasharray':dash,transform}));
     } else if (el.tipo === 'wall') {
-      nodes.push(mk('rect', {x:el.x,y:el.y,width:el.w,height:el.h,fill:calco?'rgba(95,99,104,0.2)':(sel?'#1A73E8':'#5F6368'),stroke:sel?TEMA:'#3c4043','stroke-width':1,'stroke-dasharray':dash,transform}));
+      nodes.push(mk('rect', {x:el.x,y:el.y,width:el.w,height:el.h,fill:calco?'rgba(95,99,104,0.2)':(sel?SEL:'#5F6368'),stroke:sel?SEL:'#3c4043','stroke-width':1,'stroke-dasharray':dash,transform}));
     } else if (el.tipo === 'door') {
       const t = `rotate(${rot} ${el.x+15} ${el.y+15})`;
-      nodes.push(mk('path', {d:`M ${el.x} ${el.y+30} L ${el.x} ${el.y} A 30 30 0 0 1 ${el.x+30} ${el.y+30} Z`,fill:sel?'rgba(24,128,56,0.15)':'none',stroke:calco?'#8Fb4e8':(sel?'#188038':'#888'),'stroke-width':2,'stroke-dasharray':dash,transform:t}));
+      nodes.push(mk('path', {d:`M ${el.x} ${el.y+30} L ${el.x} ${el.y} A 30 30 0 0 1 ${el.x+30} ${el.y+30} Z`,fill:sel?'rgba(255,109,0,0.18)':'none',stroke:calco?'#8Fb4e8':(sel?SEL:'#888'),'stroke-width':sel?2.5:2,'stroke-dasharray':dash,transform:t}));
     } else if (el.tipo === 'window') {
       const t = `rotate(${rot} ${el.x+20} ${el.y+4})`;
-      nodes.push(mk('rect', {x:el.x,y:el.y,width:40,height:8,fill:calco?'rgba(26,115,232,0.1)':(sel?'rgba(26,115,232,0.2)':'#cfe2ff'),stroke:calco?'#8Fb4e8':(sel?TEMA:'#5b8def'),'stroke-width':1.5,'stroke-dasharray':dash,transform:t}));
+      nodes.push(mk('rect', {x:el.x,y:el.y,width:40,height:8,fill:calco?'rgba(26,115,232,0.1)':(sel?'rgba(255,109,0,0.3)':'#cfe2ff'),stroke:calco?'#8Fb4e8':(sel?SEL:'#5b8def'),'stroke-width':sel?2.5:1.5,'stroke-dasharray':dash,transform:t}));
     } else if (el.tipo === 'stairs') {
       const t = `rotate(${rot} ${el.x+el.w/2} ${el.y+el.h/2})`;
       const gs = mk('g', {transform:t});
-      gs.appendChild(mk('rect', {x:el.x,y:el.y,width:el.w,height:el.h,fill:sel?'rgba(26,115,232,0.1)':'rgba(0,0,0,0.02)',stroke,'stroke-width':sw,'stroke-dasharray':dash}));
+      gs.setAttribute('pointer-events','none'); // que los hijos no roben el toque
+      gs.appendChild(mk('rect', {x:el.x,y:el.y,width:el.w,height:el.h,fill:sel?'rgba(255,109,0,0.12)':'rgba(0,0,0,0.02)',stroke,'stroke-width':sw,'stroke-dasharray':dash}));
       const steps = 6;
       for (let i=1;i<steps;i++){
         const yy = el.y + (el.h/steps)*i;
-        gs.appendChild(mk('line', {x1:el.x,y1:yy,x2:el.x+el.w,y2:yy,stroke:calco?'#8Fb4e8':(sel?TEMA:'#888'),'stroke-width':1.5}));
+        gs.appendChild(mk('line', {x1:el.x,y1:yy,x2:el.x+el.w,y2:yy,stroke:calco?'#8Fb4e8':(sel?SEL:'#888'),'stroke-width':1.5}));
       }
-      gs.appendChild(mk('line', {x1:el.x+el.w/2,y1:el.y+el.h-6,x2:el.x+el.w/2,y2:el.y+6,stroke:sel?TEMA:'#666','stroke-width':1.5}));
-      gs.appendChild(mk('path', {d:`M ${el.x+el.w/2-4} ${el.y+12} L ${el.x+el.w/2} ${el.y+5} L ${el.x+el.w/2+4} ${el.y+12}`,fill:'none',stroke:sel?TEMA:'#666','stroke-width':1.5}));
+      gs.appendChild(mk('line', {x1:el.x+el.w/2,y1:el.y+el.h-6,x2:el.x+el.w/2,y2:el.y+6,stroke:sel?SEL:'#666','stroke-width':1.5}));
+      gs.appendChild(mk('path', {d:`M ${el.x+el.w/2-4} ${el.y+12} L ${el.x+el.w/2} ${el.y+5} L ${el.x+el.w/2+4} ${el.y+12}`,fill:'none',stroke:sel?SEL:'#666','stroke-width':1.5}));
       nodes.push(gs);
     }
     return nodes;
   }
 
-  // bounding box de un elemento (incluye grupos)
   function bbox(el) {
     if (el.tipo === 'grupo') {
       let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
@@ -202,11 +198,8 @@ function crearEditorPlanos(containerId, colorTema) {
     if (calcoChk.checked && plantaActiva > 0) {
       const prev = plantas[plantaActiva-1].elementos;
       prev.forEach(el => {
-        if (el.tipo === 'grupo') {
-          el.hijos.forEach(h => dibujarForma(h,{calco:true}).forEach(n=>svg.appendChild(n)));
-        } else {
-          dibujarForma(el,{calco:true}).forEach(n=>svg.appendChild(n));
-        }
+        if (el.tipo === 'grupo') el.hijos.forEach(h => dibujarForma(h,{calco:true}).forEach(n=>svg.appendChild(n)));
+        else dibujarForma(el,{calco:true}).forEach(n=>svg.appendChild(n));
       });
     }
 
@@ -214,6 +207,11 @@ function crearEditorPlanos(containerId, colorTema) {
     els.forEach(el => {
       const g = mk('g', {}); g.dataset.id = el.id;
       const sel = seleccion.includes(el.id);
+      const bb = bbox(el);
+
+      // ZONA DE TOQUE invisible (más amplia, sobre todo para puerta/ventana)
+      const pad = 10;
+      g.appendChild(mk('rect', {x:bb.x-pad,y:bb.y-pad,width:bb.w+pad*2,height:bb.h+pad*2,fill:'transparent',stroke:'none'}));
 
       if (el.tipo === 'grupo') {
         el.hijos.forEach(h => dibujarForma(h,{sel}).forEach(n=>g.appendChild(n)));
@@ -222,22 +220,15 @@ function crearEditorPlanos(containerId, colorTema) {
       }
 
       // etiqueta + medida
-      const bb = bbox(el);
       if (['room','triangle','semi','stairs','grupo'].includes(el.tipo)) {
         const lx = bb.x + bb.w/2, ly = bb.y + bb.h/2;
-        if (el.label) {
-          const txt = mk('text', {x:lx,y:ly,'text-anchor':'middle','dominant-baseline':'middle','font-size':'13',fill:'#202124','font-family':'sans-serif'});
-          txt.textContent = el.label; g.appendChild(txt);
-        }
-        if (el.medida) {
-          const md = mk('text', {x:lx,y:ly+16,'text-anchor':'middle','font-size':'10',fill:'#5F6368'});
-          md.textContent = el.medida; g.appendChild(md);
-        }
+        if (el.label) { const txt = mk('text', {x:lx,y:ly,'text-anchor':'middle','dominant-baseline':'middle','font-size':'13',fill:'#202124','font-family':'sans-serif','pointer-events':'none'}); txt.textContent = el.label; g.appendChild(txt); }
+        if (el.medida) { const md = mk('text', {x:lx,y:ly+16,'text-anchor':'middle','font-size':'10',fill:'#5F6368','pointer-events':'none'}); md.textContent = el.medida; g.appendChild(md); }
       }
 
-      // handle de redimensionado
+      // handle de redimensionado (todas menos puerta/ventana)
       if (sel && el.tipo !== 'door' && el.tipo !== 'window') {
-        g.appendChild(mk('circle', {cx:bb.x+bb.w,cy:bb.y+bb.h,r:9,fill:TEMA,'data-handle':'1'}));
+        g.appendChild(mk('circle', {cx:bb.x+bb.w,cy:bb.y+bb.h,r:10,fill:SEL,stroke:'#fff','stroke-width':2,'data-handle':'1'}));
       }
       svg.appendChild(g);
     });
@@ -268,80 +259,61 @@ function crearEditorPlanos(containerId, colorTema) {
 
   function elById(id) { return plantas[plantaActiva].elementos.find(e => e.id === id); }
 
-  // ---- Fusión: crea un grupo con las sub-formas, conservando rotación ----
   function fusionar() {
     if (seleccion.length !== 2) { alert('Selecciona exactamente DOS formas para fusionarlas (toca una y luego la otra).'); return; }
     const els = plantas[plantaActiva].elementos;
     const a = elById(seleccion[0]), b = elById(seleccion[1]);
     if (!a || !b) return;
-
-    // recolectar hijos (si ya es grupo, aplanar)
     function hijosDe(el){
       if (el.tipo === 'grupo') return JSON.parse(JSON.stringify(el.hijos));
-      const copia = JSON.parse(JSON.stringify(el)); delete copia.label; delete copia.medida;
-      return [copia];
+      const c = JSON.parse(JSON.stringify(el)); delete c.label; delete c.medida; return [c];
     }
     const hijos = hijosDe(a).concat(hijosDe(b));
-    const lbl = a.label || b.label || '';
     const id = 'e' + (idCounter++);
-    const grupo = { id, tipo:'grupo', hijos, label:lbl, medida:(a.medida||b.medida||''), rot:0 };
-
+    const grupo = { id, tipo:'grupo', hijos, label:(a.label||b.label||''), medida:(a.medida||b.medida||''), rot:0 };
     const idxs = seleccion.map(s => els.findIndex(e=>e.id===s)).sort((x,y)=>y-x);
     idxs.forEach(i => { if(i>=0) els.splice(i,1); });
     els.push(grupo);
     seleccion = [id]; render();
   }
 
-  // ---- Mover / redimensionar (soporta grupos) ----
   function moverElemento(el, dx, dy) {
-    if (el.tipo === 'grupo') {
-      el.hijos.forEach(h => { h.x += dx; h.y += dy; });
-    } else {
-      el.x += dx; el.y += dy;
-    }
+    if (el.tipo === 'grupo') el.hijos.forEach(h => { h.x += dx; h.y += dy; });
+    else { el.x += dx; el.y += dy; }
   }
-  function redimensionarElemento(el, factorX, factorY, originX, originY) {
-    if (el.tipo === 'grupo') {
-      el.hijos.forEach(h => {
-        h.x = originX + (h.x - originX) * factorX;
-        h.y = originY + (h.y - originY) * factorY;
-        if (h.w) h.w = Math.max(8, h.w * factorX);
-        if (h.h) h.h = Math.max(6, h.h * factorY);
-      });
-    } else {
-      if (el.w) el.w = Math.max(20, el.w * factorX);
-      if (el.h) el.h = Math.max(10, el.h * factorY);
+
+  // localizar el <g> con data-id aunque toques un hijo interno
+  function gConId(target){
+    let n = target;
+    while (n && n !== svg) {
+      if (n.dataset && n.dataset.id) return n;
+      n = n.parentNode;
     }
+    return null;
   }
 
   svg.addEventListener('pointerdown', e => {
     e.preventDefault();
     const p = toVB(e.clientX, e.clientY);
-    const target = e.target;
-    if (target.dataset.handle) {
+    if (e.target.dataset && e.target.dataset.handle) {
       modo = 'resize';
       const el = elById(seleccion[seleccion.length-1]);
-      const bb = bbox(el);
-      resizeBase = { bb, startX:p.x, startY:p.y };
+      if (el) resizeBase = { bb: bbox(el), orig: JSON.parse(JSON.stringify(el)) };
       svg.setPointerCapture(e.pointerId);
       return;
     }
-    const g = target.closest('g');
-    if (g && g.dataset.id) {
+    const g = gConId(e.target);
+    if (g) {
       const id = g.dataset.id;
       if (!seleccion.includes(id)) {
         if (seleccion.length >= 2) seleccion = [id];
         else seleccion.push(id);
-      } else if (seleccion.length > 1) {
-        seleccion = [id];
-      }
+      } else if (seleccion.length > 1) seleccion = [id];
       modo = 'mover';
       offset.x = p.x; offset.y = p.y;
       svg.setPointerCapture(e.pointerId);
       render();
-    } else {
-      seleccion = []; render();
-    }
+    } else { seleccion = []; render(); }
   });
 
   svg.addEventListener('pointermove', e => {
@@ -355,12 +327,23 @@ function crearEditorPlanos(containerId, colorTema) {
       const dy = Math.round((p.y - offset.y)/5)*5;
       if (dx || dy) { moverElemento(el, dx, dy); offset.x += dx; offset.y += dy; render(); }
     } else if (modo === 'resize' && resizeBase) {
-      const bb = resizeBase.bb;
+      // Escalado estable: siempre desde la geometría ORIGINAL del gesto
+      const bb = resizeBase.bb, orig = resizeBase.orig;
       const nw = Math.max(20, p.x - bb.x);
       const nh = Math.max(10, p.y - bb.y);
-      const fx = nw / (bb.w||1), fy = nh / (bb.h||1);
-      redimensionarElemento(el, fx, fy, bb.x, bb.y);
-      resizeBase.bb = bbox(el);
+      const fx = nw/(bb.w||1), fy = nh/(bb.h||1);
+      if (el.tipo === 'grupo') {
+        el.hijos.forEach((h,i)=>{
+          const o = orig.hijos[i];
+          h.x = bb.x + (o.x - bb.x)*fx;
+          h.y = bb.y + (o.y - bb.y)*fy;
+          if (o.w) h.w = o.w*fx;
+          if (o.h) h.h = o.h*fy;
+        });
+      } else {
+        if (orig.w) el.w = orig.w*fx;
+        if (orig.h) el.h = orig.h*fy;
+      }
       render();
     }
   });
@@ -368,11 +351,10 @@ function crearEditorPlanos(containerId, colorTema) {
   svg.addEventListener('pointerup', () => { modo = null; resizeBase = null; });
   svg.addEventListener('pointercancel', () => { modo = null; resizeBase = null; });
 
-  // doble toque -> renombrar/medida
   let lastTapTime = 0, lastTapId = null;
   svg.addEventListener('pointerup', e => {
-    const g = e.target.closest('g');
-    if (g && g.dataset.id) {
+    const g = gConId(e.target);
+    if (g) {
       const now = Date.now();
       if (now - lastTapTime < 350 && lastTapId === g.dataset.id) {
         const el = elById(g.dataset.id);
@@ -402,28 +384,20 @@ function crearEditorPlanos(containerId, colorTema) {
           const el = elById(id);
           if (!el) return;
           if (el.tipo === 'grupo') {
-            // rotar cada hijo respecto al centro del grupo
             const bb = bbox(el);
-            const cx = bb.x+bb.w/2, cy = bb.y+bb.h/2;
+            const cx = bb.x+bb.w/2, cy = bb.y+bb.h/2, rad = Math.PI/4;
             el.hijos.forEach(h => {
               const hcx = h.x+(h.w||40)/2, hcy = h.y+(h.h||40)/2;
-              // rotar el centro del hijo 45° alrededor del centro del grupo
-              const rad = Math.PI/4;
               const ncx = cx + (hcx-cx)*Math.cos(rad) - (hcy-cy)*Math.sin(rad);
               const ncy = cy + (hcx-cx)*Math.sin(rad) + (hcy-cy)*Math.cos(rad);
               h.x += (ncx-hcx); h.y += (ncy-hcy);
               h.rot = ((h.rot||0)+45)%360;
             });
-          } else {
-            el.rot = ((el.rot||0)+45)%360;
-          }
+          } else { el.rot = ((el.rot||0)+45)%360; }
         });
         render();
-      } else if (act === 'merge') {
-        fusionar();
-      } else {
-        addEl(act);
-      }
+      } else if (act === 'merge') { fusionar(); }
+      else { addEl(act); }
     });
   });
 
@@ -437,9 +411,7 @@ function crearEditorPlanos(containerId, colorTema) {
         plantas = d.map(p => ({ nombre:p.nombre, elementos:p.elementos||[] }));
         plantaActiva = 0; seleccion = [];
         let max = 0;
-        plantas.forEach(p => (p.elementos||[]).forEach(e => {
-          const n = parseInt((e.id||'e0').slice(1)); if (n > max) max = n;
-        }));
+        plantas.forEach(p => (p.elementos||[]).forEach(e => { const n = parseInt((e.id||'e0').slice(1)); if (n > max) max = n; }));
         idCounter = max + 1;
         renderTabs(); render();
       }
