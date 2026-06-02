@@ -6,13 +6,12 @@
 <meta name="theme-color" content="#1A73E8">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Avalúos">
 <link rel="manifest" href="manifest.json">
 <title>Avalúos — Sistema de Registro</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
-  :root{--blue:#1A73E8;--blue-dark:#1557B0;--blue-light:#E8F0FE;--green:#188038;--green-light:#E6F4EA;--amber:#E37400;--amber-light:#FEF3E2;--gray:#5F6368;--gray-light:#F1F3F4;--gray-border:#DADCE0;--text:#202124;--white:#FFFFFF;}
+  :root{--blue:#1A73E8;--blue-dark:#1557B0;--blue-light:#E8F0FE;--green:#188038;--green-light:#E6F4EA;--amber:#E37400;--amber-light:#FEF3E2;--purple:#7B3FF2;--purple-light:#F0E9FE;--gray:#5F6368;--gray-light:#F1F3F4;--gray-border:#DADCE0;--text:#202124;--white:#FFFFFF;}
   html,body{height:100%;}
   body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#F8F9FA;color:var(--text);display:flex;flex-direction:column;min-height:100vh;}
   header{background:var(--blue);color:white;padding:20px 20px 28px;text-align:center;}
@@ -26,29 +25,22 @@
   .card-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
   .card-icon.urban{background:var(--blue-light);}
   .card-icon.rural{background:var(--green-light);}
+  .card-icon.list{background:var(--purple-light);}
   .card-text{flex:1;}
   .card-text strong{display:block;font-size:16px;font-weight:600;margin-bottom:3px;}
   .card-text span{font-size:13px;color:var(--gray);}
   .card-arrow{font-size:20px;color:var(--gray);opacity:0.5;}
   .divider{height:1px;background:var(--gray-border);margin:20px 0;}
-  .recientes-title{font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;}
-  .reciente-item{display:flex;align-items:center;gap:12px;background:white;border:1px solid var(--gray-border);border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:13px;}
-  .reciente-badge{font-size:10px;font-weight:600;padding:3px 7px;border-radius:6px;flex-shrink:0;}
-  .badge-u{background:var(--blue-light);color:var(--blue);}
-  .badge-r{background:var(--green-light);color:var(--green);}
-  .reciente-info{flex:1;min-width:0;}
-  .reciente-info strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;}
-  .reciente-info small{color:var(--gray);font-size:11px;}
-  .reciente-del{background:none;border:none;color:var(--gray);cursor:pointer;font-size:16px;padding:4px;}
-  .empty-state{text-align:center;padding:24px 16px;color:var(--gray);font-size:13px;}
-  .empty-state div{font-size:32px;margin-bottom:8px;}
-  .sync-bar{background:white;border-top:1px solid var(--gray-border);padding:14px 16px;display:flex;align-items:center;gap:12px;}
-  .sync-icon{font-size:24px;flex-shrink:0;}
-  .sync-text{flex:1;}
-  .sync-text strong{display:block;font-size:13px;font-weight:600;margin-bottom:2px;}
-  .sync-text span{font-size:11px;color:var(--gray);}
-  .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
-  .sync-dot.off{background:var(--gray-border);}
+  .folder-card{background:white;border:1.5px solid var(--gray-border);border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+  .folder-card .fc-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .folder-card .fc-head strong{font-size:14px;}
+  .folder-card p{font-size:12px;color:var(--gray);line-height:1.4;margin-bottom:10px;}
+  .btn-folder{width:100%;padding:11px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .btn-folder:active{background:var(--blue-dark);}
+  .btn-folder.ok{background:var(--green-light);color:var(--green);border:1px solid var(--green);}
+  .status-line{font-size:12px;margin-top:8px;display:flex;align-items:center;gap:6px;}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--gray-border);}
+  .status-dot.on{background:var(--green);}
   .install-banner{background:var(--amber-light);border-left:4px solid var(--amber);padding:12px 16px;margin-bottom:16px;border-radius:8px;font-size:13px;display:none;}
   .install-banner.show{display:block;}
   .install-banner strong{display:block;margin-bottom:3px;color:var(--amber);}
@@ -73,83 +65,63 @@
 
   <a class="card-btn" href="urbano.html">
     <div class="card-icon urban">🏙️</div>
-    <div class="card-text">
-      <strong>Avalúo Urbano</strong>
-      <span>Predios urbanos, apartamentos, locales</span>
-    </div>
+    <div class="card-text"><strong>Avalúo Urbano</strong><span>Predios urbanos, apartamentos, locales</span></div>
     <span class="card-arrow">›</span>
   </a>
 
   <a class="card-btn" href="rural.html">
     <div class="card-icon rural">🌿</div>
-    <div class="card-text">
-      <strong>Avalúo Rural</strong>
-      <span>Fincas, lotes rurales, cultivos</span>
-    </div>
+    <div class="card-text"><strong>Avalúo Rural</strong><span>Fincas, lotes rurales, cultivos</span></div>
     <span class="card-arrow">›</span>
   </a>
 
   <div class="divider"></div>
-  <p class="recientes-title">Registros recientes</p>
-  <div id="listaRecientes"></div>
-</div>
+  <p class="section-title">Registros</p>
 
-<div class="sync-bar">
-  <span class="sync-icon">☁️</span>
-  <div class="sync-text">
-    <strong>Koofr → OneDrive</strong>
-    <span id="syncStatus">Sincronización automática activa</span>
+  <a class="card-btn" href="registros.html">
+    <div class="card-icon list">🗂️</div>
+    <div class="card-text"><strong>Mis registros guardados</strong><span id="countTxt">Ver y editar avalúos guardados</span></div>
+    <span class="card-arrow">›</span>
+  </a>
+
+  <div class="divider"></div>
+  <p class="section-title">Carpeta de destino</p>
+
+  <div class="folder-card">
+    <div class="fc-head"><span style="font-size:22px">📁</span><strong>Guardar en OneDrive</strong></div>
+    <p id="folderDesc">En el portátil puedes elegir la carpeta de OneDrive una vez y los JSON se guardarán ahí directamente. En el celular el archivo se descarga para compartirlo a OneDrive.</p>
+    <button class="btn-folder" id="btnFolder" onclick="elegirCarpeta()">Elegir carpeta de destino</button>
+    <div class="status-line"><span class="status-dot" id="folderDot"></span><span id="folderStatus">Carpeta no configurada</span></div>
   </div>
-  <div class="sync-dot" id="syncDot"></div>
 </div>
 
+<script src="storage.js"></script>
 <script>
-function cargarRecientes(){
-  const lista=document.getElementById('listaRecientes');
-  const rec=JSON.parse(localStorage.getItem('avaluos_recientes')||'[]');
-  if(!rec.length){lista.innerHTML='<div class="empty-state"><div>📂</div>No hay registros guardados aún</div>';return;}
-  lista.innerHTML=rec.slice(0,8).map((r,i)=>`
-    <div class="reciente-item">
-      <span class="reciente-badge ${r.tipo==='URBANO'?'badge-u':'badge-r'}">${r.tipo==='URBANO'?'URB':'RUR'}</span>
-      <div class="reciente-info">
-        <strong>${r.municipio||'Sin municipio'} — ${r.contratante||'Sin contratante'}</strong>
-        <small>${r.fecha||''} · ${r.fecha_guardado||''}</small>
-      </div>
-      <button class="reciente-del" onclick="eliminarReciente(${i})">×</button>
-    </div>`).join('');
-}
-function eliminarReciente(i){
-  const rec=JSON.parse(localStorage.getItem('avaluos_recientes')||'[]');
-  rec.splice(i,1);localStorage.setItem('avaluos_recientes',JSON.stringify(rec));cargarRecientes();
-}
-
-// Verificar conectividad con Koofr
-async function verificarKoofr(){
-  const dot=document.getElementById('syncDot');
-  const status=document.getElementById('syncStatus');
-  try{
-    const auth=btoa('s3vazti4nperez@hotmail.com:noio3nc7d8w6cgqb');
-    const r=await fetch('https://app.koofr.net/dav/Koofr/OneDrive/001%20TRABAJO/01%20AVAL%C3%9AOS/Automatizaci%C3%B3n/Avaluos/',{method:'PROPFIND',headers:{'Authorization':'Basic '+auth,'Depth':'0'}});
-    if(r.ok||r.status===207){
-      dot.classList.remove('off');
-      status.textContent='Koofr conectado → OneDrive sincronizando';
-    } else {
-      dot.classList.add('off');
-      status.textContent='Sin conexión — los JSON se guardan localmente';
-    }
-  }catch(e){
-    dot.classList.add('off');
-    status.textContent='Sin conexión — los JSON se guardan localmente';
+async function refrescarEstado(){
+  const dot=document.getElementById('folderDot');
+  const st=document.getElementById('folderStatus');
+  const btn=document.getElementById('btnFolder');
+  const desc=document.getElementById('folderDesc');
+  if(!AvaluosStorage.soportaCarpeta){
+    desc.textContent='Este dispositivo (móvil) no permite escribir en una carpeta directamente. Los JSON se descargan y puedes compartirlos a la app de OneDrive. Para guardado directo usa el portátil.';
+    btn.style.display='none';
+    st.textContent='Modo descarga (móvil)'; dot.classList.add('on'); return;
   }
+  if(await AvaluosStorage.tieneCarpeta()){
+    dot.classList.add('on'); st.textContent='Carpeta configurada ✓';
+    btn.textContent='Cambiar carpeta'; btn.classList.add('ok');
+  } else { dot.classList.remove('on'); st.textContent='Carpeta no configurada'; }
+  try{ const regs=await AvaluosStorage.listar(); if(regs.length) document.getElementById('countTxt').textContent=regs.length+' registro(s) guardado(s)'; }catch(e){}
 }
-
-// PWA install
+async function elegirCarpeta(){
+  const ok=await AvaluosStorage.elegirCarpeta();
+  if(ok) alert('Carpeta configurada. Los próximos registros se guardarán ahí directamente.');
+  refrescarEstado();
+}
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('installBanner').classList.add('show');});
-document.getElementById('btnInstall').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();const{outcome}=await deferredPrompt.userChoice;if(outcome==='accepted')document.getElementById('installBanner').classList.remove('show');deferredPrompt=null;});
-
-cargarRecientes();
-verificarKoofr();
+document.getElementById('btnInstall').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;document.getElementById('installBanner').classList.remove('show');deferredPrompt=null;});
+refrescarEstado();
 </script>
 </body>
 </html>
