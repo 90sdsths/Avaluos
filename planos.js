@@ -29,10 +29,12 @@ function crearEditorPlanos(containerId, colorTema) {
       <button type="button" class="pl-btn" data-act="room">▭ Habitación</button>
       <button type="button" class="pl-btn" data-act="triangle">◣ Triángulo</button>
       <button type="button" class="pl-btn" data-act="semi">◗ Semicírculo</button>
-      <button type="button" class="pl-btn" data-act="wall">▬ Muro</button>
+      <button type="button" class="pl-btn" data-act="counter">🍽 Mesón</button>
+      <button type="button" class="pl-btn" data-act="toilet">🚽 Inodoro</button>
       <button type="button" class="pl-btn" data-act="door">🚪 Puerta</button>
       <button type="button" class="pl-btn" data-act="window">🪟 Ventana</button>
       <button type="button" class="pl-btn" data-act="stairs">🪜 Escaleras</button>
+      <button type="button" class="pl-btn" data-act="erase">⬜ Borrador</button>
     </div>
     <div class="pl-toolbar">
       <button type="button" class="pl-btn pl-btn-rot" data-act="rotate">↻ Rotar</button>
@@ -174,6 +176,32 @@ function crearEditorPlanos(containerId, colorTema) {
       gs.appendChild(mk('line', {x1:el.x+el.w/2,y1:el.y+el.h-6,x2:el.x+el.w/2,y2:el.y+6,stroke:sel?SEL:'#666','stroke-width':1.5}));
       gs.appendChild(mk('path', {d:`M ${el.x+el.w/2-4} ${el.y+12} L ${el.x+el.w/2} ${el.y+5} L ${el.x+el.w/2+4} ${el.y+12}`,fill:'none',stroke:sel?SEL:'#666','stroke-width':1.5}));
       nodes.push(gs);
+    } else if (el.tipo === 'counter') {
+      // Mesón de cocina: rectángulo con borde grueso y poceta (círculo) + línea de fogones
+      const t = `rotate(${rot} ${el.x+el.w/2} ${el.y+el.h/2})`;
+      const gs = mk('g', {transform:t}); gs.setAttribute('pointer-events','none');
+      gs.appendChild(mk('rect', {x:el.x,y:el.y,width:el.w,height:el.h,fill:calco?'rgba(120,80,40,0.08)':(sel?'rgba(255,109,0,0.14)':'rgba(150,110,70,0.12)'),stroke:calco?'#8Fb4e8':(sel?SEL:'#8a6d3b'),'stroke-width':sw,'stroke-dasharray':dash,rx:3}));
+      // poceta (lavaplatos)
+      gs.appendChild(mk('rect', {x:el.x+el.w*0.1,y:el.y+el.h*0.25,width:el.w*0.28,height:el.h*0.5,rx:3,fill:'none',stroke:sel?SEL:'#8a6d3b','stroke-width':1.5}));
+      // fogones (2 círculos)
+      gs.appendChild(mk('circle', {cx:el.x+el.w*0.62,cy:el.y+el.h*0.35,r:Math.min(el.w,el.h)*0.09,fill:'none',stroke:sel?SEL:'#8a6d3b','stroke-width':1.3}));
+      gs.appendChild(mk('circle', {cx:el.x+el.w*0.82,cy:el.y+el.h*0.65,r:Math.min(el.w,el.h)*0.09,fill:'none',stroke:sel?SEL:'#8a6d3b','stroke-width':1.3}));
+      nodes.push(gs);
+    } else if (el.tipo === 'toilet') {
+      // Inodoro: tanque (rect) + taza (elipse)
+      const t = `rotate(${rot} ${el.x+el.w/2} ${el.y+el.h/2})`;
+      const gs = mk('g', {transform:t}); gs.setAttribute('pointer-events','none');
+      const col = calco ? '#8Fb4e8' : (sel ? SEL : '#4a6b8a');
+      const f = sel ? 'rgba(255,109,0,0.12)' : (calco?'rgba(26,115,232,0.05)':'rgba(74,107,138,0.08)');
+      // tanque
+      gs.appendChild(mk('rect', {x:el.x+el.w*0.18,y:el.y,width:el.w*0.64,height:el.h*0.28,rx:2,fill:f,stroke:col,'stroke-width':sw,'stroke-dasharray':dash}));
+      // taza (elipse)
+      gs.appendChild(mk('ellipse', {cx:el.x+el.w/2,cy:el.y+el.h*0.62,rx:el.w*0.36,ry:el.h*0.36,fill:f,stroke:col,'stroke-width':sw,'stroke-dasharray':dash}));
+      nodes.push(gs);
+    } else if (el.tipo === 'erase') {
+      // Borrador de área: rectángulo blanco opaco que tapa lo que esté debajo.
+      // Si está seleccionado, se ve con borde naranja punteado para poder ajustarlo.
+      nodes.push(mk('rect', {x:el.x,y:el.y,width:el.w,height:el.h,fill:'#ffffff',stroke:sel?SEL:'#ffffff','stroke-width':sel?2:0,'stroke-dasharray':sel?'5 4':'',transform}));
     }
     return nodes;
   }
@@ -247,6 +275,12 @@ function crearEditorPlanos(containerId, colorTema) {
       els.push({ id, tipo, x:70, y:80, w:120, h:60, label:'', medida:'', rot:0 });
     } else if (tipo === 'wall') {
       els.push({ id, tipo, x:60, y:60, w:120, h:10, rot:0 });
+    } else if (tipo === 'counter') {
+      els.push({ id, tipo, x:70, y:70, w:130, h:40, label:'', medida:'', rot:0 });
+    } else if (tipo === 'toilet') {
+      els.push({ id, tipo, x:90, y:90, w:50, h:70, rot:0 });
+    } else if (tipo === 'erase') {
+      els.push({ id, tipo, x:80, y:80, w:90, h:60, rot:0 });
     } else if (tipo === 'stairs') {
       els.push({ id, tipo, x:80, y:80, w:60, h:100, label:'', medida:'', rot:0 });
     } else if (tipo === 'door') {
