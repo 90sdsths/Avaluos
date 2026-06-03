@@ -297,6 +297,22 @@
   </div>
 </div>
 
+<!-- MAPA DE CAMPO -->
+<div class="card">
+  <div class="card-header"><span>🗺 Localización y medición del predio</span></div>
+  <div class="card-body">
+    <div id="mapaCampo"></div>
+  </div>
+</div>
+
+<!-- ANOTACIONES -->
+<div class="card">
+  <div class="card-header"><span>📝 Anotaciones</span></div>
+  <div class="card-body">
+    <div id="anotaciones"></div>
+  </div>
+</div>
+
 <!-- GUARDAR -->
 <div class="actions">
   <button class="btn-save" onclick="guardar()">💾 Guardar registro</button>
@@ -312,10 +328,14 @@
 
 <script src="planos.js"></script>
 <script src="tablas.js"></script>
+<script src="mapacampo.js"></script>
+<script src="anotaciones.js"></script>
 <script src="storage.js"></script>
 <script>
 const SINGLE=['chips_finalidad','chips_estado','chips_cauce_int','chips_cauce_perm','chips_irrigacion','chips_transporte'];
 const editorPlantas = crearEditorPlanos('editorPlantas', '#188038');
+const mapaCampo = crearMapaCampo('mapaCampo');
+const anotaciones = crearAnotaciones('anotaciones');
 const depMod = crearDependencias('depContainer', 3);
 const secMod = crearSecciones('secContainer', 3, 2);
 
@@ -428,6 +448,8 @@ function construirRegistro(){
     uso_suelo:document.getElementById('f_uso_suelo').value,
     afectaciones:document.getElementById('f_afectaciones').value,
     consideraciones:document.getElementById('f_consideraciones').value,
+    mapa_campo:mapaCampo?mapaCampo.getData():null,
+    anotaciones:anotaciones?anotaciones.getData():[],
     fecha_guardado:new Date().toLocaleString('es-CO')
   };
   reg.nombre_archivo=nombreArchivo(reg);
@@ -501,6 +523,8 @@ function limpiar(){
   setV('f_propietario',d.propietario);setV('f_matricula',d.matricula);setV('f_codigo_cat',d.codigo_catastral);
   setV('f_titulo',d.titulo_adquisicion);setV('f_uso_suelo',d.uso_suelo);
   setV('f_afectaciones',d.afectaciones);setV('f_consideraciones',d.consideraciones);
+  if(d.mapa_campo&&mapaCampo)mapaCampo.setData(d.mapa_campo);
+  if(d.anotaciones&&anotaciones)anotaciones.setData(d.anotaciones);
   if(d.dependencias)depMod.setData(d.dependencias);
   if(d.secciones)secMod.setData(d.secciones);
   if(d.plantas)editorPlantas.setData(d.plantas);
