@@ -65,7 +65,8 @@ function crearMapaCampo(containerId){
       .card-map{transition:none;}
       .card-map:not(.collapsed){position:fixed;inset:0;z-index:4000;margin:0;border-radius:0;display:flex;flex-direction:column;background:#fff;}
       .card-map:not(.collapsed) .card-header{flex-shrink:0;}
-      .card-map:not(.collapsed) .card-body{flex:1;padding:0;overflow:hidden;position:relative;}
+      .card-map:not(.collapsed) .card-body{flex:1;padding:0;overflow:hidden;position:relative;min-height:0;}
+      .card-map:not(.collapsed) .card-body > div{height:100%;position:relative;}
       .card-map .card-body{padding:0;}
       .mc-cont{position:relative;width:100%;height:100%;min-height:60px;}
       /* cuando NO está a pantalla completa, el contenedor es bajito (solo se ve mensaje) */
@@ -144,7 +145,11 @@ function crearMapaCampo(containerId){
   function abrir(){
     cargarLeaflet(ok=>{
       if(!ok){ const e=document.getElementById(id+'_empty'); if(e){e.style.display='flex';e.innerHTML='⚠️ El mapa no cargó (revisa tu conexión la primera vez). El GPS sí funciona: enciéndelo y usa Marcar.';} return; }
-      setTimeout(()=>{ initMap(); if(map){map.invalidateSize();} },150);
+      const mapDiv=document.getElementById(id+'_map');
+      if(mapDiv){ cont.style.height='100%'; const w=cont.querySelector('.mc-cont'); if(w)w.style.height='100%'; mapDiv.style.height='100%'; }
+      setTimeout(()=>{ initMap(); if(map){map.invalidateSize(true);} },180);
+      setTimeout(()=>{ if(map)map.invalidateSize(true); },500);
+      setTimeout(()=>{ if(map)map.invalidateSize(true); },1000);
     });
   }
 
