@@ -453,6 +453,7 @@ function construirRegistro(){
     fecha_guardado:new Date().toLocaleString('es-CO')
   };
   reg.nombre_archivo=nombreArchivo(reg);
+  reg.nombre_base=nombreBase(reg);
   const params=new URLSearchParams(location.search);
   const editId=params.get('edit');
   if(editId) reg.id=editId;
@@ -460,10 +461,12 @@ function construirRegistro(){
 }
 
 // Esquema: rural_Municipio_Vereda_Contratante_Fecha
-function nombreArchivo(reg){
+function nombreBase(reg){
   const limpia=s=>(s||'').toString().trim().replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
-  const partes=['rural',limpia(reg.municipio),limpia(reg.vereda),limpia(reg.contratante),reg.fecha_visita_texto||''];
-  return partes.filter(Boolean).join('_')+'.json';
+  return ['rural',limpia(reg.municipio),limpia(reg.vereda),limpia(reg.contratante),reg.fecha_visita_texto||''].filter(Boolean).join('_');
+}
+function nombreArchivo(reg){
+  return nombreBase(reg)+'_Db.json';
 }
 
 function camposMinimos(){

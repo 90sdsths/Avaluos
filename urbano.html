@@ -437,6 +437,7 @@ function construirRegistro(){
     fecha_guardado:new Date().toLocaleString('es-CO')
   };
   reg.nombre_archivo=nombreArchivo(reg);
+  reg.nombre_base=nombreBase(reg);
   const params=new URLSearchParams(location.search);
   const editId=params.get('edit');
   if(editId) reg.id=editId;
@@ -444,10 +445,12 @@ function construirRegistro(){
 }
 
 // Esquema de nombre: urbano_Municipio_Vereda_Contratante_Fecha (urbano no tiene vereda)
-function nombreArchivo(reg){
+function nombreBase(reg){
   const limpia=s=>(s||'').toString().trim().replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
-  const partes=['urbano',limpia(reg.municipio),limpia(reg.contratante),reg.fecha_visita_texto||''];
-  return partes.filter(Boolean).join('_')+'.json';
+  return ['urbano',limpia(reg.municipio),limpia(reg.contratante),reg.fecha_visita_texto||''].filter(Boolean).join('_');
+}
+function nombreArchivo(reg){
+  return nombreBase(reg)+'_Db.json';
 }
 
 // ¿Están los campos mínimos para nombrar el archivo?

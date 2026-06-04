@@ -83,6 +83,33 @@
     }catch(e){ console.error('FSA write',e); return false; }
   }
 
+  // Lee todos los _Db.json de la carpeta configurada (solo escritorio)
+  async function leerCarpeta(){
+    if(!FSA) return [];
+    try{
+      const handle=await idbGet(STORE_CFG,'dirHandle');
+      if(!handle) return [];
+      if(!(await verificarPermiso(handle))) return [];
+      const registros=[];
+      for await (const entry of handle.values()){
+        if(entry.kind!=='file') continue;
+        const nombre=entry.name.toLowerCase();
+        if(!nombre.endsWith('.json')) continue;
+        // priorizar los _Db.json, pero aceptar cualquier .json de avalúo
+        try{
+          const file=await entry.getFile();
+          const txt=await file.text();
+          const reg=JSON.parse(txt);
+          if(reg && (reg.tipo==='URBANO'||reg.tipo==='RURAL')){
+            reg._origen='carpeta';
+            registros.push(reg);
+          }
+        }catch(e){}
+      }
+      return registros;
+    }catch(e){ console.error('FSA read',e); return []; }
+  }
+
   function descargar(nombre, contenido){
     const blob=new Blob([contenido],{type:'application/json'});
     const a=document.createElement('a');
@@ -147,7 +174,34 @@
     },
 
     async compartirArchivo(nombre, contenido){ return compartir(nombre, contenido); },
+    // Importa un registro ya parseado a la base local (sin descargar ni escribir carpeta)
+    async guardarImportado(registro){
+      registro.id = registro.id || ('avaluo_'+Date.now());
+      if(!registro.fecha_guardado) registro.fecha_guardado = new Date().toLocaleString('es-CO');
+      await idbPut(STORE_REG, registro);
+      return true;
+    },
     listar(){ return idbAll(STORE_REG); },
+    leerCarpeta: leerCarpeta,
+    // Lista combinada: base interna + carpeta (escritorio). Deduplica por id;
+    // ante duplicado, gana el más reciente por fecha_guardado.
+    async listarTodos(){
+      const internos=await idbAll(STORE_REG);
+      let deCarpeta=[];
+      try{ deCarpeta=await leerCarpeta(); }catch(e){}
+      const mapa={};
+      const poner=(r)=>{
+        if(!r||!r.id){ r.id='avaluo_'+Date.now()+'_'+Math.floor(Math.random()*100000); }
+        const prev=mapa[r.id];
+        if(!prev){ mapa[r.id]=r; return; }
+        // conservar el más reciente
+        const f1=Date.parse(prev.fecha_guardado)||0, f2=Date.parse(r.fecha_guardado)||0;
+        if(f2>=f1) mapa[r.id]=r;
+      };
+      internos.forEach(poner);
+      deCarpeta.forEach(poner);
+      return Object.values(mapa);
+    },
     obtener(id){ return idbGet(STORE_REG, id); },
     eliminar(id){ return idbDel(STORE_REG, id); }
   };

@@ -7,7 +7,7 @@
 <title>Mis registros</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
-  :root{--blue:#1A73E8;--blue-light:#E8F0FE;--green:#188038;--green-light:#E6F4EA;--purple:#7B3FF2;--purple-dark:#5A28C0;--red:#D93025;--gray:#5F6368;--gray-light:#F1F3F4;--gray-border:#DADCE0;--text:#202124;--white:#FFFFFF;}
+  :root{--blue:#1A73E8;--blue-light:#E8F0FE;--green:#188038;--green-light:#E6F4EA;--purple:#7B3FF2;--purple-dark:#5A28C0;--red:#D93025;--amber:#E37400;--gray:#5F6368;--gray-light:#F1F3F4;--gray-border:#DADCE0;--text:#202124;--white:#FFFFFF;}
   body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#F8F9FA;color:var(--text);font-size:15px;}
   header{background:var(--purple);color:white;padding:14px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;gap:12px;}
   .btn-back{background:none;border:none;color:white;font-size:22px;cursor:pointer;padding:0 4px;}
@@ -15,6 +15,11 @@
   .header-text p{font-size:12px;opacity:0.85;}
   .container{max-width:560px;margin:0 auto;padding:16px;}
   .filtros{display:flex;gap:8px;margin-bottom:16px;}
+  .btn-import{width:100%;padding:12px;border-radius:10px;border:1.5px dashed var(--green);background:var(--green-light);color:var(--green);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;}
+  .btn-import:active{background:#d6ecdc;}
+  .btn-folder-rd{width:100%;padding:11px;border-radius:10px;border:1.5px solid var(--blue);background:#fff;color:var(--blue);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;}
+  .btn-folder-rd:active{background:var(--blue-light);}
+  .aviso-carpeta{font-size:12px;color:var(--gray);background:#FEF3E2;border-left:3px solid var(--amber);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.4;}
   .filtro{flex:1;padding:9px;border-radius:8px;border:1.5px solid var(--gray-border);background:white;font-size:13px;text-align:center;cursor:pointer;font-weight:500;color:var(--gray);}
   .filtro.active{background:var(--purple);color:white;border-color:var(--purple);}
   .reg{background:white;border:1px solid var(--gray-border);border-radius:12px;padding:14px;margin-bottom:10px;}
@@ -30,6 +35,8 @@
   .btn-edit{color:var(--purple);border-color:var(--purple)!important;}
   .btn-edit:active{background:var(--purple);color:white;}
   .btn-dl{color:var(--blue);border-color:var(--blue)!important;}
+  .btn-kml{color:var(--green);border-color:var(--green)!important;}
+  .btn-kml:active{background:var(--green);color:white;}
   .btn-del{color:var(--red);border-color:#F2C4BD!important;flex:0 0 auto!important;width:46px;}
   .empty{text-align:center;padding:48px 16px;color:var(--gray);}
   .empty div{font-size:48px;margin-bottom:12px;}
@@ -42,6 +49,10 @@
   <div class="header-text"><h1>🗂️ Mis registros</h1><p>Toca un registro para editarlo</p></div>
 </header>
 <div class="container">
+  <button class="btn-import" id="btnImport">📥 Importar registro (Db.json) desde OneDrive/archivos</button>
+  <button class="btn-folder-rd" id="btnFolderRd">🔄 Leer carpeta de OneDrive (computador)</button>
+  <div class="aviso-carpeta" id="avisoCarpeta" style="display:none">💡 En el computador puedes elegir la carpeta de OneDrive para que se listen automáticamente todos los registros guardados ahí.</div>
+  <input type="file" id="fileImport" accept=".json,application/json" multiple style="display:none">
   <div class="filtros">
     <div class="filtro active" data-f="todos" onclick="filtrar('todos',this)">Todos</div>
     <div class="filtro" data-f="URBANO" onclick="filtrar('URBANO',this)">Urbanos</div>
@@ -57,8 +68,30 @@ let registros=[], filtro='todos';
 function fechaTxt(r){ return r.fecha_visita_texto || ''; }
 
 async function cargar(){
-  registros=(await AvaluosStorage.listar()).sort((a,b)=>(b.id>a.id?1:-1));
+  const lista=document.getElementById('lista');
+  lista.innerHTML='<div class="empty"><div>⏳</div>Cargando registros...</div>';
+  try{
+    registros=(await AvaluosStorage.listarTodos()).sort((a,b)=>(b.id>a.id?1:-1));
+  }catch(e){
+    registros=(await AvaluosStorage.listar()).sort((a,b)=>(b.id>a.id?1:-1));
+  }
+  // aviso si en escritorio no hay carpeta configurada
+  const aviso=document.getElementById('avisoCarpeta');
+  if(aviso){
+    if(AvaluosStorage.soportaCarpeta){
+      const tiene=await AvaluosStorage.tieneCarpeta();
+      aviso.style.display=tiene?'none':'block';
+    } else { aviso.style.display='none'; }
+  }
   pintar();
+}
+async function recargarCarpeta(){
+  if(!AvaluosStorage.soportaCarpeta){ alert('La lectura automática de carpeta solo está disponible en el computador.'); return; }
+  if(!(await AvaluosStorage.tieneCarpeta())){
+    const ok=await AvaluosStorage.elegirCarpeta();
+    if(!ok) return;
+  }
+  cargar();
 }
 function filtrar(f,el){
   filtro=f;
@@ -87,7 +120,8 @@ function pintar(){
       </div>
       <div class="reg-actions">
         <button class="btn-edit" onclick="editar('${r.id}')">✏️ Editar</button>
-        <button class="btn-dl" onclick="descargar('${r.id}')">⬇️ JSON</button>
+        <button class="btn-dl" onclick="descargar('${r.id}')">⬇️ Db</button>
+        <button class="btn-kml" onclick="exportarKml('${r.id}')">🌍 KML</button>
         <button class="btn-del" onclick="borrar('${r.id}')">🗑</button>
       </div>
     </div>`).join('');
@@ -97,14 +131,30 @@ function editar(id){
   const destino = r.tipo==='URBANO' ? 'urbano.html' : 'rural.html';
   location.href = destino+'?edit='+encodeURIComponent(id);
 }
+function baseNombre(r){
+  if(r.nombre_base) return r.nombre_base;
+  if(r.nombre_archivo) return r.nombre_archivo.replace(/_Db\.json$/,'').replace(/\.json$/,'');
+  return r.id;
+}
 async function descargar(id){
   const r=await AvaluosStorage.obtener(id); if(!r) return;
   const contenido=JSON.stringify(r,null,2);
-  const nombre=r.nombre_archivo||(id+'.json');
-  // intentar compartir en móvil, si no descargar
+  const nombre=r.nombre_archivo||(baseNombre(r)+'_Db.json');
   const compartido=await AvaluosStorage.compartirArchivo(nombre,contenido);
   if(!compartido){
     const blob=new Blob([contenido],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nombre;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+}
+async function exportarKml(id){
+  const r=await AvaluosStorage.obtener(id); if(!r) return;
+  const kml=r.mapa_campo&&r.mapa_campo.kml;
+  if(!kml){ alert('Este registro no tiene un predio mapeado todavía.'); return; }
+  const nombre=baseNombre(r)+'_Kml.kml';
+  const compartido=await AvaluosStorage.compartirArchivo(nombre,kml);
+  if(!compartido){
+    const blob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nombre;a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
@@ -114,6 +164,36 @@ async function borrar(id){
   await AvaluosStorage.eliminar(id);
   cargar();
 }
+
+// ── Importar uno o varios Db.json (desde OneDrive/FolderSync o cualquier carpeta) ──
+document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('fileImport').click());
+document.getElementById('btnFolderRd').addEventListener('click',recargarCarpeta);
+document.getElementById('fileImport').addEventListener('change',async e=>{
+  const files=[...e.target.files];
+  if(!files.length)return;
+  let ok=0,err=0,act=0;
+  for(const f of files){
+    try{
+      const txt=await f.text();
+      const reg=JSON.parse(txt);
+      if(!reg.tipo||(reg.tipo!=='URBANO'&&reg.tipo!=='RURAL')){err++;continue;}
+      // conservar el id si lo trae (para que sea el MISMO registro y no un duplicado)
+      if(!reg.id) reg.id='avaluo_'+Date.now()+'_'+Math.floor(Math.random()*1000);
+      // si ya existe uno con ese id, lo actualizamos
+      const existe=registros.find(x=>x.id===reg.id);
+      if(existe)act++; else ok++;
+      await AvaluosStorage.guardarImportado(reg);
+    }catch(e){err++;}
+  }
+  e.target.value='';
+  let msg=[];
+  if(ok)msg.push(ok+' nuevo(s)');
+  if(act)msg.push(act+' actualizado(s)');
+  if(err)msg.push(err+' con error');
+  alert('Importación: '+(msg.join(', ')||'sin cambios')+'.');
+  cargar();
+});
+
 cargar();
 </script>
 </body>
