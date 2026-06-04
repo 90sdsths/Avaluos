@@ -71,25 +71,25 @@ function crearMapaCampo(containerId){
       .mc-cont{position:relative;width:100%;height:100%;min-height:60px;}
       /* cuando NO está a pantalla completa, el contenedor es bajito (solo se ve mensaje) */
       .card-map.collapsed .mc-cont{height:0;}
-      .mc-map{position:absolute;inset:0;background:#5a6b7a;}
-      .mc-empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;color:#fff;font-size:13px;padding:20px;background:#5a6b7a;line-height:1.5;}
+      .mc-map{position:absolute;inset:0;background:#5a6b7a;z-index:1;}
+      .mc-empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;color:#fff;font-size:13px;padding:20px;background:#5a6b7a;line-height:1.5;z-index:2;}
       .mc-gd{background:rgba(20,24,30,0.62);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;border:0.5px solid rgba(255,255,255,0.12);}
-      .mc-top{position:absolute;top:8px;left:8px;right:8px;z-index:10;display:flex;gap:6px;align-items:center;}
+      .mc-top{position:absolute;top:8px;left:8px;right:8px;z-index:1000;display:flex;gap:6px;align-items:center;}
       .mc-badge{font-size:10px;padding:5px 9px;border-radius:14px;display:flex;align-items:center;gap:5px;font-weight:600;white-space:nowrap;}
       .mc-dot{width:8px;height:8px;border-radius:50%;background:#bbb;}
       .mc-dot.ok{background:#1db954;}.mc-dot.warn{background:#E37400;}.mc-dot.bad{background:#D93025;}
       .mc-coord{font-size:10px;padding:5px 8px;border-radius:12px;font-family:monospace;flex:1;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-      .mc-seg{position:absolute;top:42px;left:50%;transform:translateX(-50%);z-index:10;display:flex;border-radius:18px;overflow:hidden;}
+      .mc-seg{position:absolute;top:42px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;border-radius:18px;overflow:hidden;}
       .mc-seg button{padding:7px 12px;border:none;background:transparent;color:#eee;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;}
       .mc-seg button.on{background:#188038;color:#fff;}
-      .mc-stats{position:absolute;top:80px;left:8px;z-index:10;border-radius:10px;padding:6px 9px;font-size:11px;}
+      .mc-stats{position:absolute;top:80px;left:8px;z-index:1000;border-radius:10px;padding:6px 9px;font-size:11px;}
       .mc-stats .v{font-weight:700;color:#7CFC7C;}
-      .mc-col{position:absolute;left:8px;bottom:10px;z-index:10;display:flex;flex-direction:column;gap:6px;}
+      .mc-col{position:absolute;left:8px;bottom:10px;z-index:1000;display:flex;flex-direction:column;gap:6px;}
       .mc-b{width:104px;padding:8px 10px;border-radius:10px;border:none;font-size:12px;font-weight:600;color:#fff;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:5px;}
       .mc-b.green{background:rgba(24,128,56,0.92);}.mc-b.blue{background:rgba(26,115,232,0.92);}
       .mc-b.tracking{background:rgba(217,48,37,0.95);animation:mcpulse 1.2s infinite;}
       @keyframes mcpulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
-      .mc-hint{position:absolute;left:8px;right:8px;bottom:116px;z-index:9;text-align:center;font-size:11px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.8);pointer-events:none;}
+      .mc-hint{position:absolute;left:8px;right:8px;bottom:116px;z-index:999;text-align:center;font-size:11px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.8);pointer-events:none;}
       /* ocultar controles cuando la sección está plegada */
       .card-map.collapsed .mc-top,.card-map.collapsed .mc-seg,.card-map.collapsed .mc-stats,.card-map.collapsed .mc-col,.card-map.collapsed .mc-hint,.card-map.collapsed .mc-map{display:none;}
     `;
@@ -157,7 +157,8 @@ function crearMapaCampo(containerId){
     if(mapaIniciado){ if(map)map.invalidateSize(); redibujar(); return; }
     mapaIniciado=true;
     const centro=puntos.length?[puntos[0].lat,puntos[0].lng]:[5.54,-73.36];
-    map=L.map(id+'_map',{zoomControl:true,attributionControl:false}).setView(centro, puntos.length?17:13);
+    map=L.map(id+'_map',{zoomControl:false,attributionControl:false}).setView(centro, puntos.length?17:13);
+    L.control.zoom({position:'bottomright'}).addTo(map);
     capaActual=crearCapa(CAPAS[capaNombre]).addTo(map);
     capaPoligono=L.layerGroup().addTo(map);
     capaRuta=L.layerGroup().addTo(map);
