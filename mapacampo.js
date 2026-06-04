@@ -10,9 +10,10 @@ function crearMapaCampo(containerId){
   if(!cont) return null;
 
   let puntos=[], rutaPts=[], sueltos=[];
+  let referencias=[]; // capas importadas (IGAC u otros): [{nombre, anillos:[[{lat,lng}...]]}]
   let modoMapa='campo';
   let map=null, mapaIniciado=false, watchId=null, ultimaPos=null, tracking=false, autoCampo=false;
-  let capaPoligono,capaMarcadores,capaRuta,marcadorPos,accCircle,capaActual;
+  let capaPoligono,capaMarcadores,capaRuta,capaRef,marcadorPos,accCircle,capaActual;
   let capaNombre='satelital';
 
   const R=6378137, rad=d=>d*Math.PI/180;
@@ -54,8 +55,23 @@ function crearMapaCampo(containerId){
       <button type="button" class="mc-b mc-gd" id="${id}_bcentrar">🎯 Centrar</button>
       <button type="button" class="mc-b mc-gd" id="${id}_bundo">↶ Deshacer</button>
       <button type="button" class="mc-b mc-gd" id="${id}_bcapa">🛰 Capa</button>
+      <button type="button" class="mc-b mc-gd" id="${id}_btools">⋮ Más</button>
     </div>
     <div class="mc-empty" id="${id}_empty">Despliega esta sección para abrir el mapa.<br>Toca el mapa o usa el GPS para marcar el predio.</div>
+    <div class="mc-backdrop" id="${id}_back"></div>
+    <div class="mc-sheet" id="${id}_sheet">
+      <h4>Herramientas del mapa <span id="${id}_sclose">✕</span></h4>
+      <div class="mc-sheet-grid">
+        <button type="button" class="mc-sb" id="${id}_bprom">⊕ Promediar (10s)</button>
+        <button type="button" class="mc-sb" id="${id}_bimpkml">📂 Importar KML</button>
+        <button type="button" class="mc-sb" id="${id}_bimpgeo">🗂 Importar IGAC (GeoJSON)</button>
+        <button type="button" class="mc-sb" id="${id}_bcoord">🧭 Ir a coordenada</button>
+        <button type="button" class="mc-sb" id="${id}_bkml">💾 Exportar KML</button>
+        <button type="button" class="mc-sb" id="${id}_bclrref" style="color:#D93025">🧹 Quitar capas IGAC</button>
+      </div>
+      <input type="file" id="${id}_filekml" accept=".kml" style="display:none">
+      <input type="file" id="${id}_filegeo" accept=".json,.geojson,application/json" style="display:none">
+    </div>
   `;
 
   if(!document.getElementById('mc-styles')){
@@ -90,6 +106,15 @@ function crearMapaCampo(containerId){
       .mc-b.tracking{background:rgba(217,48,37,0.95);animation:mcpulse 1.2s infinite;}
       @keyframes mcpulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
       .mc-hint{position:absolute;left:8px;right:8px;bottom:116px;z-index:999;text-align:center;font-size:11px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.8);pointer-events:none;}
+      .mc-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.35);z-index:1100;display:none;}
+      .mc-backdrop.show{display:block;}
+      .mc-sheet{position:absolute;left:0;right:0;bottom:0;z-index:1200;background:#fff;border-radius:16px 16px 0 0;padding:14px 12px;transform:translateY(110%);transition:transform 0.25s;box-shadow:0 -4px 16px rgba(0,0,0,0.25);}
+      .mc-sheet.show{transform:translateY(0);}
+      .mc-sheet h4{font-size:13px;margin-bottom:10px;display:flex;align-items:center;color:#202124;}
+      .mc-sheet h4 span{margin-left:auto;cursor:pointer;font-size:18px;color:#888;}
+      .mc-sheet-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+      .mc-sb{padding:10px;border:none;border-radius:9px;background:rgba(0,0,0,0.05);color:#202124;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;text-align:left;}
+      .mc-sb:active{background:rgba(0,0,0,0.1);}
       /* ocultar controles cuando la sección está plegada */
       .card-map.collapsed .mc-top,.card-map.collapsed .mc-seg,.card-map.collapsed .mc-stats,.card-map.collapsed .mc-col,.card-map.collapsed .mc-hint,.card-map.collapsed .mc-map{display:none;}
     `;
@@ -160,6 +185,7 @@ function crearMapaCampo(containerId){
     map=L.map(id+'_map',{zoomControl:false,attributionControl:false}).setView(centro, puntos.length?17:13);
     L.control.zoom({position:'bottomright'}).addTo(map);
     capaActual=crearCapa(CAPAS[capaNombre]).addTo(map);
+    capaRef=L.layerGroup().addTo(map);
     capaPoligono=L.layerGroup().addTo(map);
     capaRuta=L.layerGroup().addTo(map);
     capaMarcadores=L.layerGroup().addTo(map);
@@ -172,13 +198,21 @@ function crearMapaCampo(containerId){
   function iconoVertice(n){return L.divIcon({className:'',html:`<div style="width:20px;height:20px;background:#FF6D00;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;font-family:sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.4);">${n}</div>`,iconSize:[20,20],iconAnchor:[10,10]});}
   function iconoMid(){return L.divIcon({className:'',html:`<div style="width:14px;height:14px;background:rgba(255,109,0,0.45);border:2px dashed #fff;border-radius:50%;"></div>`,iconSize:[14,14],iconAnchor:[7,7]});}
   function iconoDist(t){return L.divIcon({className:'',html:`<div style="background:rgba(20,24,30,0.7);color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:8px;white-space:nowrap;transform:translateY(-14px);font-family:sans-serif;">${t}</div>`,iconSize:[1,1],iconAnchor:[0,0]});}
+  function iconoRef(t){return L.divIcon({className:'',html:`<div style="background:rgba(26,115,232,0.85);color:#fff;font-size:10px;font-weight:600;padding:2px 7px;border-radius:8px;white-space:nowrap;font-family:sans-serif;">🗂 ${t||'IGAC'}</div>`,iconSize:[1,1],iconAnchor:[0,0]});}
 
   function redibujar(){
     const sa=document.getElementById(id+'_sa'),sp=document.getElementById(id+'_sp');
     if(sa)sa.textContent=modoMapa==='ruta'?'—':fmtArea(area(puntos));
     if(sp)sp.textContent=modoMapa==='ruta'?fmtDist(perimetro(rutaPts,false)):fmtDist(perimetro(puntos,true));
     if(!map)return;
-    capaPoligono.clearLayers();capaRuta.clearLayers();capaMarcadores.clearLayers();
+    capaPoligono.clearLayers();capaRuta.clearLayers();capaMarcadores.clearLayers();if(capaRef)capaRef.clearLayers();
+    // capas de referencia (IGAC) en azul punteado
+    if(capaRef)referencias.forEach(ref=>{
+      ref.anillos.forEach(anillo=>{
+        L.polygon(anillo.map(p=>[p.lat,p.lng]),{color:'#1A73E8',weight:2,dashArray:'6 4',fill:true,fillColor:'#1A73E8',fillOpacity:0.08}).addTo(capaRef);
+      });
+      if(ref.anillos[0]&&ref.anillos[0].length){const c=ref.anillos[0][0];L.marker([c.lat,c.lng],{icon:iconoRef(ref.nombre),interactive:false}).addTo(capaRef);}
+    });
     if(modoMapa==='campo'&&puntos.length){
       const ll=puntos.map(p=>[p.lat,p.lng]);
       if(puntos.length>=3)L.polygon(ll,{color:'#FF6D00',weight:2,fillColor:'#FF6D00',fillOpacity:0.25}).addTo(capaPoligono);
@@ -255,15 +289,124 @@ function crearMapaCampo(containerId){
     document.getElementById(id+'_bcentrar').addEventListener('click',()=>{if(ultimaPos&&map)map.setView([ultimaPos.lat,ultimaPos.lng],18);else alert('Sin posición GPS.');});
     document.getElementById(id+'_bundo').addEventListener('click',()=>{if(modoMapa==='campo')puntos.pop();else if(modoMapa==='ruta')rutaPts.pop();else sueltos.pop();redibujar();});
     document.getElementById(id+'_bcapa').addEventListener('click',()=>{const o=['satelital','topo','calles'];capaNombre=o[(o.indexOf(capaNombre)+1)%3];if(map){map.removeLayer(capaActual);capaActual=crearCapa(CAPAS[capaNombre]).addTo(map);capaActual.bringToBack();}setHint('Capa: '+capaNombre);});
+
+    // Caja de herramientas
+    const abrirSheet=()=>{document.getElementById(id+'_sheet').classList.add('show');document.getElementById(id+'_back').classList.add('show');};
+    const cerrarSheet=()=>{document.getElementById(id+'_sheet').classList.remove('show');document.getElementById(id+'_back').classList.remove('show');};
+    document.getElementById(id+'_btools').addEventListener('click',abrirSheet);
+    document.getElementById(id+'_sclose').addEventListener('click',cerrarSheet);
+    document.getElementById(id+'_back').addEventListener('click',cerrarSheet);
+    document.getElementById(id+'_bprom').addEventListener('click',()=>{cerrarSheet();marcarPromedio();});
+    document.getElementById(id+'_bimpkml').addEventListener('click',()=>{cerrarSheet();document.getElementById(id+'_filekml').click();});
+    document.getElementById(id+'_bimpgeo').addEventListener('click',()=>{cerrarSheet();document.getElementById(id+'_filegeo').click();});
+    document.getElementById(id+'_filekml').addEventListener('change',importarKML);
+    document.getElementById(id+'_filegeo').addEventListener('change',importarGeoJSON);
+    document.getElementById(id+'_bcoord').addEventListener('click',()=>{cerrarSheet();irACoordenada();});
+    document.getElementById(id+'_bkml').addEventListener('click',()=>{cerrarSheet();descargarKML();});
+    document.getElementById(id+'_bclrref').addEventListener('click',()=>{cerrarSheet();if(referencias.length&&confirm('¿Quitar las capas IGAC importadas?')){referencias=[];redibujar();}});
+  }
+
+  // ---- Promediar 10s ----
+  function marcarPromedio(){
+    if(watchId===null){alert('Enciende el GPS primero.');return;}
+    if(modoMapa==='ruta'){alert('Promediar aplica a Campo o Puntos.');return;}
+    const muestras=[];let seg=10;
+    setHint('Promediando... mantente quieto');
+    const h=pos=>muestras.push({lat:pos.coords.latitude,lng:pos.coords.longitude,acc:pos.coords.accuracy});
+    const w=navigator.geolocation.watchPosition(h,()=>{},{enableHighAccuracy:true,maximumAge:0});
+    const iv=setInterval(()=>{seg--;setHint('Promediando... '+seg+'s (no te muevas)');if(seg<=0)fin();},1000);
+    function fin(){
+      clearInterval(iv);navigator.geolocation.clearWatch(w);
+      if(!muestras.length){setHint('No se obtuvieron lecturas.');return;}
+      let sLat=0,sLng=0,sw=0;muestras.forEach(m=>{const ww=1/Math.max(1,m.acc);sLat+=m.lat*ww;sLng+=m.lng*ww;sw+=ww;});
+      const lat=sLat/sw,lng=sLng/sw,ap=Math.round(muestras.reduce((a,m)=>a+m.acc,0)/muestras.length);
+      if(modoMapa==='campo')addPunto(lat,lng,ap);else addSuelto(lat,lng,ap);
+      setHint('✅ Punto promediado ('+muestras.length+' lecturas, ±'+ap+' m)');
+    }
+  }
+
+  // ---- Importar KML (tu propio levantamiento o de Fields Area) ----
+  function importarKML(ev){
+    const file=ev.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        const xml=new DOMParser().parseFromString(e.target.result,'text/xml');
+        const cs=xml.getElementsByTagName('coordinates');
+        if(!cs.length){alert('No se encontraron coordenadas.');return;}
+        const esPoly=xml.getElementsByTagName('Polygon').length>0;
+        const imp=[];
+        cs[0].textContent.trim().split(/\s+/).forEach(t=>{const p=t.split(',');if(p.length>=2){const lng=parseFloat(p[0]),lat=parseFloat(p[1]);if(!isNaN(lat)&&!isNaN(lng))imp.push({lat,lng,acc:null});}});
+        if(imp.length<2){alert('Forma no válida.');return;}
+        if(esPoly&&imp.length>2){const a=imp[0],b=imp[imp.length-1];if(Math.abs(a.lat-b.lat)<1e-9&&Math.abs(a.lng-b.lng)<1e-9)imp.pop();}
+        modoMapa='campo';document.querySelectorAll('#'+id+'_seg button').forEach(x=>x.classList.remove('on'));document.querySelector('#'+id+'_seg button[data-m="campo"]').classList.add('on');
+        puntos=imp;redibujar();
+        if(map)map.fitBounds(L.latLngBounds(puntos.map(p=>[p.lat,p.lng])),{padding:[40,40]});
+        setHint('✅ KML importado: '+puntos.length+' vértices · '+fmtArea(area(puntos)));
+      }catch(err){alert('No se pudo leer el KML: '+err.message);}
+      ev.target.value='';
+    };
+    r.readAsText(file);
+  }
+
+  // ---- Importar GeoJSON del IGAC (capa de referencia) ----
+  function importarGeoJSON(ev){
+    const file=ev.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        const gj=JSON.parse(e.target.result);
+        const anillos=[];
+        const procesarGeom=geom=>{
+          if(!geom)return;
+          if(geom.type==='Polygon'){ geom.coordinates.forEach(ring=>anillos.push(ring.map(c=>({lng:c[0],lat:c[1]})))); }
+          else if(geom.type==='MultiPolygon'){ geom.coordinates.forEach(poly=>poly.forEach(ring=>anillos.push(ring.map(c=>({lng:c[0],lat:c[1]}))))); }
+          else if(geom.type==='LineString'){ anillos.push(geom.coordinates.map(c=>({lng:c[0],lat:c[1]}))); }
+        };
+        if(gj.type==='FeatureCollection'){ gj.features.forEach(f=>procesarGeom(f.geometry)); }
+        else if(gj.type==='Feature'){ procesarGeom(gj.geometry); }
+        else if(gj.type){ procesarGeom(gj); }
+        if(!anillos.length){alert('No se encontró geometría en el GeoJSON.');return;}
+        const nombre=prompt('Nombre de esta capa de referencia:','Lindero IGAC '+(referencias.length+1))||('IGAC '+(referencias.length+1));
+        referencias.push({nombre,anillos});
+        redibujar();
+        // centrar en la capa importada
+        const todos=[];anillos.forEach(a=>a.forEach(p=>todos.push([p.lat,p.lng])));
+        if(map&&todos.length)map.fitBounds(L.latLngBounds(todos),{padding:[40,40]});
+        // calcular área del primer anillo como referencia
+        const aRef=anillos[0]?area(anillos[0]):0;
+        setHint('✅ Capa IGAC importada ('+fmtArea(aRef)+'). Ahora levanta tu polígono en modo Campo.');
+      }catch(err){alert('No se pudo leer el GeoJSON: '+err.message);}
+      ev.target.value='';
+    };
+    r.readAsText(file);
+  }
+
+  function irACoordenada(){
+    const en=prompt('Coordenada (lat, lon):\nEj: 5.5353, -73.3678','');
+    if(!en)return;
+    const m=en.split(/[,\s]+/).map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
+    if(m.length<2){alert('Formato no válido.');return;}
+    const[lat,lng]=m;
+    if(map){map.setView([lat,lng],17);setHint('📍 Centrado en '+lat.toFixed(5)+', '+lng.toFixed(5));}
+  }
+
+  function descargarKML(){
+    const kml=generarKML();
+    if(!kml){alert('No hay nada que exportar todavía.');return;}
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'}));a.download='predio_'+new Date().toISOString().slice(0,10)+'.kml';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    setHint('💾 KML descargado para Google Earth.');
   }
 
   function generarKML(){
     let pm='';
-    if(puntos.length>=3){const c=puntos.concat([puntos[0]]).map(p=>p.lng+','+p.lat+',0').join(' ');pm+=`<Placemark><name>Predio (${fmtArea(area(puntos))})</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${c}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;}
+    if(puntos.length>=3){const c=puntos.concat([puntos[0]]).map(p=>p.lng+','+p.lat+',0').join(' ');pm+=`<Placemark><name>Predio levantado (${fmtArea(area(puntos))})</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${c}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;}
     if(rutaPts.length>=2){const c=rutaPts.map(p=>p.lng+','+p.lat+',0').join(' ');pm+=`<Placemark><name>Ruta</name><LineString><coordinates>${c}</coordinates></LineString></Placemark>`;}
     sueltos.forEach(p=>{pm+=`<Placemark><name>${p.nombre}</name><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`;});
+    // capas de referencia IGAC
+    referencias.forEach(ref=>{ref.anillos.forEach((anillo,i)=>{const c=anillo.concat([anillo[0]]).map(p=>p.lng+','+p.lat+',0').join(' ');pm+=`<Placemark><name>${ref.nombre}${ref.anillos.length>1?(' ('+(i+1)+')'):''}</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${c}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;});});
     if(!pm)return '';
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>${pm}</Document></kml>`;
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Mapeo avalúo</name>${pm}</Document></kml>`;
   }
 
   return {
@@ -271,6 +414,7 @@ function crearMapaCampo(containerId){
       puntos:JSON.parse(JSON.stringify(puntos)),
       ruta:JSON.parse(JSON.stringify(rutaPts)),
       sueltos:JSON.parse(JSON.stringify(sueltos)),
+      referencias:JSON.parse(JSON.stringify(referencias)),
       area_m2:Math.round(area(puntos)),
       area_ha:+(area(puntos)/10000).toFixed(4),
       perimetro_m:Math.round(perimetro(puntos,true)),
@@ -281,6 +425,7 @@ function crearMapaCampo(containerId){
       puntos=(d.puntos||[]).map(p=>({lat:p.lat,lng:p.lng,acc:p.acc||null}));
       rutaPts=(d.ruta||[]).map(p=>({lat:p.lat,lng:p.lng}));
       sueltos=(d.sueltos||[]).map(p=>({lat:p.lat,lng:p.lng,acc:p.acc||null,nombre:p.nombre||'Punto'}));
+      referencias=(d.referencias||[]).map(r=>({nombre:r.nombre||'IGAC',anillos:(r.anillos||[]).map(a=>a.map(p=>({lat:p.lat,lng:p.lng})))}));
       if(map)redibujar();
     }
   };
