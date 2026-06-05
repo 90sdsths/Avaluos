@@ -114,7 +114,7 @@
       <label>Finalidad del avalúo</label>
       <div class="chip-group" id="chips_finalidad">
         <div class="chip" data-val="comercial">Comercial</div>
-        <div class="chip" data-val="judicial">Judicial</div>
+        <div class="chip" data-val="jurídico">Jurídico</div>
         <div class="chip" data-val="hipotecario">Hipotecario</div>
         <div class="chip" data-val="fiscal">Fiscal</div>
       </div>
@@ -201,12 +201,12 @@
     <div class="field">
       <label>Servicios disponibles</label>
       <div class="chip-group" id="chips_servicios">
-        <div class="chip" data-val="Agua">Agua</div>
-        <div class="chip" data-val="Luz">Luz</div>
-        <div class="chip" data-val="Gas Natural">Gas Natural</div>
-        <div class="chip" data-val="Pipeta de gas">Pipeta</div>
-        <div class="chip" data-val="Alcantarillado">Alcantarillado</div>
-        <div class="chip" data-val="Vertimientos">Vertimientos</div>
+        <div class="chip" data-val="acueducto">Acueducto</div>
+        <div class="chip" data-val="energía eléctrica">Energía eléctrica</div>
+        <div class="chip" data-val="gas natural">Gas natural</div>
+        <div class="chip" data-val="pipeta de gas">Pipeta</div>
+        <div class="chip" data-val="alcantarillado">Alcantarillado</div>
+        <div class="chip" data-val="vertimientos">Vertimientos</div>
       </div>
     </div>
     <div class="field">
@@ -216,6 +216,31 @@
         <div class="chip" data-val="no">No</div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- CONDICIONES DEL ENTORNO -->
+<div class="card">
+  <div class="card-header"><span>🌄 Condiciones del entorno</span></div>
+  <div class="card-body">
+    <table class="env-table">
+      <tbody>
+        <tr><td>Uso predominante del sector</td><td>
+          <select id="ce_uso_sector"><option value="">Seleccionar...</option><option>Agrícola</option><option>Ganadero</option><option>Agropecuario mixto</option><option>Forestal</option><option>Residencial campestre</option><option>Recreativo / turístico</option><option>Conservación / protección</option><option>Industrial / agroindustrial</option></select>
+        </td></tr>
+        <tr><td>Tipo de zona</td><td>
+          <select id="ce_tipo_zona"><option value="">Seleccionar...</option><option>Rural disperso</option><option>Centro poblado</option><option>Suburbana</option><option>Zona de expansión</option><option>Zona protegida</option></select>
+        </td></tr>
+        <tr><td>Cercanía a cabecera municipal</td><td><input type="text" id="ce_cercania_cabecera" placeholder="Ej: a 8 km, 20 min en vehículo"></td></tr>
+        <tr><td>Equipamientos cercanos</td><td><input type="text" id="ce_equipamientos" placeholder="Escuela, puesto de salud, iglesia..."></td></tr>
+        <tr><td>Clima / piso térmico</td><td>
+          <select id="ce_clima"><option value="">Seleccionar...</option><option>Cálido</option><option>Templado</option><option>Frío</option><option>Páramo</option></select>
+        </td></tr>
+        <tr><td>Riesgos / amenazas</td><td><input type="text" id="ce_riesgos" placeholder="Inundación, deslizamiento, sequía..."></td></tr>
+        <tr><td>Ruido / olores / contaminación</td><td><input type="text" id="ce_molestias" placeholder="Fuentes de molestia cercanas"></td></tr>
+        <tr><td>Observaciones del entorno</td><td><input type="text" id="ce_observaciones" placeholder="Otras condiciones relevantes"></td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
@@ -448,6 +473,16 @@ function construirRegistro(){
     uso_suelo:document.getElementById('f_uso_suelo').value,
     afectaciones:document.getElementById('f_afectaciones').value,
     consideraciones:document.getElementById('f_consideraciones').value,
+    condiciones_entorno:{
+      uso_sector:document.getElementById('ce_uso_sector').value,
+      tipo_zona:document.getElementById('ce_tipo_zona').value,
+      cercania_cabecera:document.getElementById('ce_cercania_cabecera').value,
+      equipamientos:document.getElementById('ce_equipamientos').value,
+      clima:document.getElementById('ce_clima').value,
+      riesgos:document.getElementById('ce_riesgos').value,
+      molestias:document.getElementById('ce_molestias').value,
+      observaciones:document.getElementById('ce_observaciones').value
+    },
     mapa_campo:mapaCampo?mapaCampo.getData():null,
     anotaciones:anotaciones?anotaciones.getData():[],
     fecha_guardado:new Date().toLocaleString('es-CO')
@@ -528,6 +563,13 @@ function limpiar(){
   setV('f_afectaciones',d.afectaciones);setV('f_consideraciones',d.consideraciones);
   if(d.mapa_campo&&mapaCampo)mapaCampo.setData(d.mapa_campo);
   if(d.anotaciones&&anotaciones)anotaciones.setData(d.anotaciones);
+  if(d.condiciones_entorno){
+    const ce=d.condiciones_entorno;
+    setV('ce_uso_sector',ce.uso_sector);setV('ce_tipo_zona',ce.tipo_zona);
+    setV('ce_cercania_cabecera',ce.cercania_cabecera);setV('ce_equipamientos',ce.equipamientos);
+    setV('ce_clima',ce.clima);setV('ce_riesgos',ce.riesgos);
+    setV('ce_molestias',ce.molestias);setV('ce_observaciones',ce.observaciones);
+  }
   if(d.dependencias)depMod.setData(d.dependencias);
   if(d.secciones)secMod.setData(d.secciones);
   if(d.plantas)editorPlantas.setData(d.plantas);
