@@ -28,9 +28,9 @@
     <input id="lat" value="5.5353" placeholder="Latitud">
     <input id="lng" value="-73.3678" placeholder="Longitud">
   </div>
-  <button onclick="probar('srtm30m')">Probar Open Topo Data (SRTM 30 m)</button>
-  <button class="alt" onclick="probar('srtm90m')">Probar respaldo (SRTM 90 m)</button>
-  <button class="alt" style="background:#E37400" onclick="probarMulti()">Probar varios puntos (un lote)</button>
+  <button onclick="probarMeteo()">✅ Probar Open-Meteo (recomendado, con CORS)</button>
+  <button class="alt" style="background:#E37400" onclick="probarMeteoMulti()">Probar varios puntos con Open-Meteo (un lote)</button>
+  <button class="alt" style="background:#5F6368" onclick="probar('srtm30m')">Probar Open Topo Data (suele fallar por CORS)</button>
 
   <div id="resultado"></div>
 
@@ -45,6 +45,49 @@
 <script>
 const elRes=document.getElementById('resultado');
 function mostrar(clase,texto){ elRes.className='resultado '+clase; elRes.textContent=texto; }
+
+// ---- Open-Meteo (recomendado, tiene CORS) ----
+async function probarMeteo(){
+  const lat=document.getElementById('lat').value.trim();
+  const lng=document.getElementById('lng').value.trim();
+  mostrar('info','⏳ Consultando Open-Meteo para '+lat+', '+lng+' ...');
+  const url='https://api.open-meteo.com/v1/elevation?latitude='+lat+'&longitude='+lng;
+  try{
+    const t0=Date.now();
+    const resp=await fetch(url);
+    const ms=Date.now()-t0;
+    if(!resp.ok){ mostrar('err','⚠️ HTTP '+resp.status+' ('+resp.statusText+').'); return; }
+    const data=await resp.json();
+    if(data.elevation && data.elevation.length){
+      mostrar('ok','✅ ¡FUNCIONA con Open-Meteo!\n\nElevación: '+data.elevation[0]+' metros\nResolución: ~90 m (Copernicus DEM)\nTiempo de respuesta: '+ms+' ms\n\nEste servicio SÍ permite usarse desde la app. Es el que integraremos.');
+    } else {
+      mostrar('err','Respondió sin datos válidos:\n'+JSON.stringify(data,null,2));
+    }
+  }catch(err){
+    mostrar('err','❌ Bloqueado o error.\nError: '+err.message);
+  }
+}
+
+async function probarMeteoMulti(){
+  const lats='5.5353,5.5360,5.5358,5.5350';
+  const lngs='-73.3678,-73.3680,-73.3670,-73.3672';
+  mostrar('info','⏳ Consultando 4 puntos de un lote con Open-Meteo ...');
+  const url='https://api.open-meteo.com/v1/elevation?latitude='+lats+'&longitude='+lngs;
+  try{
+    const resp=await fetch(url);
+    if(!resp.ok){ mostrar('err','⚠️ HTTP '+resp.status); return; }
+    const data=await resp.json();
+    if(data.elevation && data.elevation.length){
+      const alts=data.elevation.filter(v=>v!=null);
+      const min=Math.min(...alts), max=Math.max(...alts), prom=alts.reduce((a,b)=>a+b,0)/alts.length;
+      mostrar('ok','✅ ¡FUNCIONA con varios puntos!\n\nAlturas: '+alts.join(', ')+' m\n\nMÍNIMA: '+min+' m\nMÁXIMA: '+max+' m\nPROMEDIO: '+prom.toFixed(1)+' m\n\nAsí se verían los datos de un lote en la app. (Si todas son iguales, los puntos cayeron en la misma celda de ~90 m.)');
+    } else {
+      mostrar('err','Respondió sin datos válidos:\n'+JSON.stringify(data,null,2));
+    }
+  }catch(err){
+    mostrar('err','❌ Bloqueado o error.\nError: '+err.message);
+  }
+}
 
 async function probar(dataset){
   const lat=document.getElementById('lat').value.trim();
