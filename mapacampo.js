@@ -11,6 +11,7 @@ function crearMapaCampo(containerId){
 
   let puntos=[], rutaPts=[], sueltos=[];
   let referencias=[]; // capas importadas (IGAC u otros): [{nombre, anillos:[[{lat,lng}...]]}]
+  let elevacion=null; // {min,max,prom,pendiente_pct,pendiente_grados,puntos_usados, pendiente_calc}
   let modoMapa='campo';
   let map=null, mapaIniciado=false, watchId=null, ultimaPos=null, tracking=false, autoCampo=false;
   let capaPoligono,capaMarcadores,capaRuta,capaRef,marcadorPos,accCircle,capaActual;
@@ -46,6 +47,12 @@ function crearMapaCampo(containerId){
     <div class="mc-stats mc-gd">
       <div>Área <span class="v" id="${id}_sa">0</span></div>
       <div>Perím <span class="v" id="${id}_sp">0</span></div>
+      <div id="${id}_elev_box" style="display:none;border-top:1px solid rgba(255,255,255,0.2);margin-top:3px;padding-top:3px;">
+        <div>Alt. mín <span class="v" id="${id}_emin">—</span></div>
+        <div>Alt. máx <span class="v" id="${id}_emax">—</span></div>
+        <div>Alt. prom <span class="v" id="${id}_eprom">—</span></div>
+        <div>Pendiente <span class="v" id="${id}_epend">—</span></div>
+      </div>
     </div>
     <div class="mc-hint" id="${id}_hint"></div>
     <div class="mc-col">
@@ -449,6 +456,105 @@ function crearMapaCampo(containerId){
     setHint('💾 KML descargado para Google Earth.');
   }
 
+  // ===== ALTURAS DEL LOTE (Open-Meteo) =====
+  // Genera puntos dentro del polígono en una malla de ~paso metros
+  function mallaInterna(poly, pasoM){
+    if(poly.length<3) return [];
+    const lats=poly.map(p=>p.lat), lngs=poly.map(p=>p.lng);
+    const minLat=Math.min(...lats), maxLat=Math.max(...lats);
+    const minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
+    // paso en grados (aprox): 1 grado lat ~ 111320 m
+    const pasoLat=pasoM/111320;
+    const latMed=(minLat+maxLat)/2;
+    const pasoLng=pasoM/(111320*Math.cos(rad(latMed)));
+    const pts=[];
+    for(let la=minLat; la<=maxLat; la+=pasoLat){
+      for(let lo=minLng; lo<=maxLng; lo+=pasoLng){
+        if(puntoEnPoligono(la,lo,poly)) pts.push({lat:la,lng:lo});
+      }
+    }
+    // siempre incluir los vértices, por si el lote es muy pequeño
+    poly.forEach(p=>pts.push({lat:p.lat,lng:p.lng}));
+    return pts;
+  }
+  function puntoEnPoligono(lat,lng,poly){
+    let dentro=false;
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+      const xi=poly[i].lng, yi=poly[i].lat, xj=poly[j].lng, yj=poly[j].lat;
+      const corta=((yi>lat)!==(yj>lat)) && (lng < (xj-xi)*(lat-yi)/(yj-yi)+xi);
+      if(corta) dentro=!dentro;
+    }
+    return dentro;
+  }
+
+  // Calcula alturas consultando Open-Meteo. Devuelve promesa con el resumen.
+  async function calcularAlturas(){
+    if(puntos.length<3) return null;
+    setHint('🏔️ Calculando alturas del lote...');
+    let malla=mallaInterna(puntos, 90);
+    // tope de seguridad
+    if(malla.length>300){
+      // submuestrear a ~300 puntos
+      const paso=Math.ceil(malla.length/300);
+      malla=malla.filter((_,i)=>i%paso===0);
+    }
+    if(!malla.length) return null;
+    try{
+      // Open-Meteo acepta hasta 100 coords por llamada; dividir en lotes
+      const alturas=[], conCoord=[];
+      for(let i=0;i<malla.length;i+=100){
+        const trozo=malla.slice(i,i+100);
+        const lats=trozo.map(p=>p.lat.toFixed(6)).join(',');
+        const lngs=trozo.map(p=>p.lng.toFixed(6)).join(',');
+        const url='https://api.open-meteo.com/v1/elevation?latitude='+lats+'&longitude='+lngs;
+        const resp=await fetch(url);
+        if(!resp.ok) throw new Error('HTTP '+resp.status);
+        const data=await resp.json();
+        if(!data.elevation) throw new Error('sin datos');
+        data.elevation.forEach((e,k)=>{ if(e!=null){ alturas.push(e); conCoord.push({lat:trozo[k].lat,lng:trozo[k].lng,alt:e}); } });
+      }
+      if(!alturas.length) throw new Error('sin alturas');
+      const min=Math.min(...alturas), max=Math.max(...alturas);
+      const prom=alturas.reduce((a,b)=>a+b,0)/alturas.length;
+      // pendiente general: desnivel (max-min) sobre la distancia horizontal
+      // entre el punto más alto y el más bajo
+      let pMax=conCoord[0], pMin=conCoord[0];
+      conCoord.forEach(p=>{ if(p.alt>pMax.alt)pMax=p; if(p.alt<pMin.alt)pMin=p; });
+      const distH=distancia(pMin,pMax);
+      let pendPct=0, pendGrad=0;
+      if(distH>0){
+        pendPct=((max-min)/distH)*100;
+        pendGrad=Math.atan2(max-min,distH)*180/Math.PI;
+      }
+      elevacion={
+        min:Math.round(min), max:Math.round(max), prom:Math.round(prom*10)/10,
+        pendiente_pct:Math.round(pendPct*10)/10, pendiente_grados:Math.round(pendGrad*10)/10,
+        puntos_usados:alturas.length, fuente:'Open-Meteo (Copernicus DEM ~90m)', pendiente_calc:true
+      };
+      mostrarElevacion();
+      setHint('✅ Alturas: mín '+elevacion.min+' / máx '+elevacion.max+' / prom '+elevacion.prom+' m · pendiente '+elevacion.pendiente_pct+'%');
+      return elevacion;
+    }catch(err){
+      setHint('⚠️ No se pudieron calcular las alturas (sin internet o servicio caído). Se reintentará al reabrir.');
+      elevacion={pendiente_calc:false, pendiente:true}; // marca de "pendiente de calcular"
+      return null;
+    }
+  }
+
+  function mostrarElevacion(){
+    const box=document.getElementById(id+'_elev_box');
+    if(!box) return;
+    if(elevacion && elevacion.pendiente_calc){
+      box.style.display='block';
+      document.getElementById(id+'_emin').textContent=elevacion.min+' m';
+      document.getElementById(id+'_emax').textContent=elevacion.max+' m';
+      document.getElementById(id+'_eprom').textContent=elevacion.prom+' m';
+      document.getElementById(id+'_epend').textContent=elevacion.pendiente_pct+'% ('+elevacion.pendiente_grados+'°)';
+    } else {
+      box.style.display='none';
+    }
+  }
+
   function generarKML(){
     let pm='';
     if(puntos.length>=3){const c=puntos.concat([puntos[0]]).map(p=>p.lng+','+p.lat+',0').join(' ');pm+=`<Placemark><name>Predio levantado (${fmtArea(area(puntos))})</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${c}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;}
@@ -469,6 +575,7 @@ function crearMapaCampo(containerId){
       area_m2:Math.round(area(puntos)),
       area_ha:+(area(puntos)/10000).toFixed(4),
       perimetro_m:Math.round(perimetro(puntos,true)),
+      elevacion:elevacion?JSON.parse(JSON.stringify(elevacion)):null,
       kml:generarKML()
     }),
     setData:(d)=>{
@@ -477,7 +584,13 @@ function crearMapaCampo(containerId){
       rutaPts=(d.ruta||[]).map(p=>({lat:p.lat,lng:p.lng}));
       sueltos=(d.sueltos||[]).map(p=>({lat:p.lat,lng:p.lng,acc:p.acc||null,nombre:p.nombre||'Punto'}));
       referencias=(d.referencias||[]).map(r=>({nombre:r.nombre||'IGAC',anillos:(r.anillos||[]).map(a=>a.map(p=>({lat:p.lat,lng:p.lng})))}));
+      elevacion=d.elevacion||null;
+      mostrarElevacion();
       if(map)redibujar();
-    }
+    },
+    // Calcula alturas (al guardar). Devuelve promesa con el resumen o null.
+    calcularAlturas: calcularAlturas,
+    // ¿Hay un lote pero las alturas quedaron pendientes de calcular?
+    alturasPendientes: ()=> (puntos.length>=3 && (!elevacion || !elevacion.pendiente_calc))
   };
 }

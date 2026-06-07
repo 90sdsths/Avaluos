@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#188038">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
 <title>Avalúo Rural</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -402,6 +406,12 @@ async function guardar(){
   const falt=reqs.filter(r=>!document.getElementById(r.id).value.trim());
   if(falt.length){alert('Campos obligatorios:\n'+falt.map(r=>'• '+r.label).join('\n'));document.getElementById(falt[0].id).focus();return;}
 
+  if(mapaCampo && mapaCampo.alturasPendientes && mapaCampo.alturasPendientes()){
+    const odE=document.getElementById('od_status');
+    odE.classList.add('show'); odE.textContent='🏔️ Calculando alturas del lote...';
+    try{ await mapaCampo.calcularAlturas(); }catch(e){}
+  }
+
   const reg=construirRegistro();
   const json=JSON.stringify(reg,null,2);
 
@@ -562,6 +572,9 @@ function limpiar(){
   setV('f_titulo',d.titulo_adquisicion);setV('f_uso_suelo',d.uso_suelo);
   setV('f_afectaciones',d.afectaciones);setV('f_consideraciones',d.consideraciones);
   if(d.mapa_campo&&mapaCampo)mapaCampo.setData(d.mapa_campo);
+  if(mapaCampo && mapaCampo.alturasPendientes && mapaCampo.alturasPendientes() && navigator.onLine){
+    setTimeout(()=>{ mapaCampo.calcularAlturas().catch(()=>{}); }, 1500);
+  }
   if(d.anotaciones&&anotaciones)anotaciones.setData(d.anotaciones);
   if(d.condiciones_entorno){
     const ce=d.condiciones_entorno;
