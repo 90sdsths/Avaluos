@@ -137,7 +137,9 @@ function baseNombre(r){
   return r.id;
 }
 async function descargar(id){
-  const r=await AvaluosStorage.obtener(id); if(!r) return;
+  let r=registros.find(x=>x.id===id);
+  if(!r) r=await AvaluosStorage.obtener(id);
+  if(!r) return;
   const contenido=JSON.stringify(r,null,2);
   const nombre=r.nombre_archivo||(baseNombre(r)+'_Db.json');
   const compartido=await AvaluosStorage.compartirArchivo(nombre,contenido);
@@ -148,7 +150,9 @@ async function descargar(id){
   }
 }
 async function exportarKml(id){
-  const r=await AvaluosStorage.obtener(id); if(!r) return;
+  let r=registros.find(x=>x.id===id);
+  if(!r) r=await AvaluosStorage.obtener(id);
+  if(!r) return;
   const mc=r.mapa_campo;
   if(!mc){ alert('Este registro no tiene un predio mapeado todavía.'); return; }
   // Regenerar el KML desde los datos para que nunca falte nada

@@ -70,12 +70,31 @@
     return false;
   }
 
-  async function escribirEnCarpeta(nombre, contenido){
+  async function escribirEnCarpeta(nombre, contenido, idRegistro){
     if(!FSA) return false;
     try{
       const handle=await idbGet(STORE_CFG,'dirHandle');
       if(!handle) return false;
       if(!(await verificarPermiso(handle))) return false;
+      // Limpiar versiones viejas del MISMO registro con nombre distinto
+      if(idRegistro){
+        try{
+          for await (const entry of handle.values()){
+            if(entry.kind!=='file') continue;
+            if(entry.name===nombre) continue;
+            if(!entry.name.toLowerCase().endsWith('.json')) continue;
+            try{
+              const f=await entry.getFile();
+              const txt=await f.text();
+              const reg=JSON.parse(txt);
+              if(reg && reg.id===idRegistro){
+                // es el mismo registro con otro nombre: borrar el viejo
+                await handle.removeEntry(entry.name);
+              }
+            }catch(e){}
+          }
+        }catch(e){}
+      }
       const fh=await handle.getFileHandle(nombre,{create:true});
       const w=await fh.createWritable();
       await w.write(contenido); await w.close();
@@ -129,6 +148,30 @@
     return false;
   }
 
+  // Marca de tiempo robusta para comparar versiones.
+  // Parsea fecha_guardado en español ("6/6/2026, 8:49:03 p. m.") y,
+  // como respaldo, usa el timestamp incrustado en el id (avaluo_1780666765760).
+  function marcaTiempo(r){
+    if(!r) return 0;
+    // 1) intentar la fecha guardada en español
+    const f=r.fecha_guardado;
+    if(f){
+      const m=String(f).match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2}):(\d{2})\s*(a\.?\s*m\.?|p\.?\s*m\.?)?/i);
+      if(m){
+        let [_,dia,mes,anio,h,mi,s,ampm]=m;
+        h=parseInt(h); mi=parseInt(mi); s=parseInt(s);
+        if(ampm){ const pm=/p/i.test(ampm); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0; }
+        const t=new Date(+anio,+mes-1,+dia,h,mi,s).getTime();
+        if(!isNaN(t)) return t;
+      }
+      const t2=Date.parse(f); if(!isNaN(t2)) return t2;
+    }
+    // 2) respaldo: timestamp del id
+    const mi2=String(r.id||'').match(/(\d{13})/);
+    if(mi2) return parseInt(mi2[1]);
+    return 0;
+  }
+
   // ---------- API pública ----------
   const Storage = {
     soportaCarpeta: FSA,
@@ -155,7 +198,7 @@
       let metodo='local';
       // 1. intentar carpeta directa (escritorio)
       if(FSA && await this.tieneCarpeta()){
-        if(await escribirEnCarpeta(nombre, contenido)){ return {ok:true, metodo:'carpeta'}; }
+        if(await escribirEnCarpeta(nombre, contenido, registro.id)){ return {ok:true, metodo:'carpeta'}; }
       }
       // 2. en autoguardado silencioso no descargamos
       if(opts.silencioso){ return {ok:true, metodo:'local'}; }
@@ -194,9 +237,8 @@
         if(!r||!r.id){ r.id='avaluo_'+Date.now()+'_'+Math.floor(Math.random()*100000); }
         const prev=mapa[r.id];
         if(!prev){ mapa[r.id]=r; return; }
-        // conservar el más reciente
-        const f1=Date.parse(prev.fecha_guardado)||0, f2=Date.parse(r.fecha_guardado)||0;
-        if(f2>=f1) mapa[r.id]=r;
+        // conservar el más reciente (por marca de tiempo robusta)
+        if(marcaTiempo(r) >= marcaTiempo(prev)) mapa[r.id]=r;
       };
       internos.forEach(poner);
       deCarpeta.forEach(poner);
