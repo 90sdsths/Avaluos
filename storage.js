@@ -233,12 +233,31 @@
       let deCarpeta=[];
       try{ deCarpeta=await leerCarpeta(); }catch(e){}
       const mapa={};
+      // clave de identidad: nombre_base si existe (mismo avalúo aunque
+      // tenga id distinto por haberse recreado), si no, se calcula desde
+      // los campos; como último recurso, el id.
+      const baseDe=(r)=>{
+        if(r.nombre_base) return r.nombre_base;
+        const limpia=s=>(s||'').toString().trim().replace(/\s+/g,'_');
+        const t=(r.tipo==='RURAL')?'rural':'urbano';
+        const partes=(r.tipo==='RURAL')
+          ? [t,limpia(r.municipio),limpia(r.vereda),limpia(r.contratante),r.fecha_visita_texto||'']
+          : [t,limpia(r.municipio),limpia(r.contratante),r.fecha_visita_texto||''];
+        const b=partes.filter(Boolean).join('_');
+        return b.length>3 ? b : '';
+      };
+      const claveId=(r)=>{
+        const b=baseDe(r);
+        if(b) return 'nb:'+b.toLowerCase();
+        return 'id:'+(r.id||'');
+      };
       const poner=(r)=>{
-        if(!r||!r.id){ r.id='avaluo_'+Date.now()+'_'+Math.floor(Math.random()*100000); }
-        const prev=mapa[r.id];
-        if(!prev){ mapa[r.id]=r; return; }
-        // conservar el más reciente (por marca de tiempo robusta)
-        if(marcaTiempo(r) >= marcaTiempo(prev)) mapa[r.id]=r;
+        if(!r) return;
+        if(!r.id){ r.id='avaluo_'+Date.now()+'_'+Math.floor(Math.random()*100000); }
+        const k=claveId(r);
+        const prev=mapa[k];
+        if(!prev){ mapa[k]=r; return; }
+        if(marcaTiempo(r) >= marcaTiempo(prev)) mapa[k]=r;
       };
       internos.forEach(poner);
       deCarpeta.forEach(poner);
