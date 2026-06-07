@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba de elevación</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:640px;margin:0 auto;padding:20px;background:#F8F9FA;color:#202124;}
+  h1{font-size:20px;}
+  .coords{display:flex;gap:8px;margin-bottom:10px;}
+  input{flex:1;padding:10px;border:1.5px solid #DADCE0;border-radius:8px;font-size:14px;font-family:inherit;}
+  button{width:100%;padding:13px;border:none;border-radius:10px;background:#1A73E8;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;}
+  button:active{background:#1557b0;}
+  .alt{background:#34A853;}
+  .resultado{margin-top:16px;padding:14px;border-radius:10px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word;}
+  .ok{background:#E6F4EA;border:1.5px solid #34A853;}
+  .err{background:#FCE8E6;border:1.5px solid #D93025;}
+  .info{background:#E8F0FE;border:1.5px solid #1A73E8;}
+  .nota{font-size:12px;color:#5F6368;margin-top:14px;line-height:1.5;}
+  code{background:#eee;padding:1px 5px;border-radius:4px;font-size:12px;}
+</style>
+</head>
+<body>
+  <h1>🏔️ Prueba de servicio de elevación</h1>
+  <p style="font-size:14px;color:#5F6368;">Esta página comprueba si tu navegador puede consultar el servicio gratuito <b>Open Topo Data</b> desde una página web. Si funciona, podremos integrarlo en la app.</p>
+
+  <div class="coords">
+    <input id="lat" value="5.5353" placeholder="Latitud">
+    <input id="lng" value="-73.3678" placeholder="Longitud">
+  </div>
+  <button onclick="probar('srtm30m')">Probar Open Topo Data (SRTM 30 m)</button>
+  <button class="alt" onclick="probar('srtm90m')">Probar respaldo (SRTM 90 m)</button>
+  <button class="alt" style="background:#E37400" onclick="probarMulti()">Probar varios puntos (un lote)</button>
+
+  <div id="resultado"></div>
+
+  <div class="nota">
+    <b>Cómo interpretar:</b><br>
+    • <b>Verde (✅):</b> el servicio respondió y el navegador lo permitió. Podemos integrarlo.<br>
+    • <b>Rojo con "CORS" o "Failed to fetch":</b> el navegador bloqueó la consulta. Habría que probar otro servicio o un plan B.<br>
+    • <b>Rojo con otro mensaje:</b> el servicio respondió pero con error (ej. coordenada fuera de rango o servicio caído).<br><br>
+    Coordenadas de ejemplo: Tunja (5.5353, -73.3678). Puedes cambiarlas por las de un lote real para ver si da una altura coherente con la zona.
+  </div>
+
+<script>
+const elRes=document.getElementById('resultado');
+function mostrar(clase,texto){ elRes.className='resultado '+clase; elRes.textContent=texto; }
+
+async function probar(dataset){
+  const lat=document.getElementById('lat').value.trim();
+  const lng=document.getElementById('lng').value.trim();
+  mostrar('info','⏳ Consultando '+dataset+' para '+lat+', '+lng+' ...');
+  const url='https://api.opentopodata.org/v1/'+dataset+'?locations='+lat+','+lng;
+  try{
+    const t0=Date.now();
+    const resp=await fetch(url);
+    const ms=Date.now()-t0;
+    if(!resp.ok){ mostrar('err','⚠️ El servicio respondió con error HTTP '+resp.status+' ('+resp.statusText+').\nURL: '+url); return; }
+    const data=await resp.json();
+    if(data.status==='OK' && data.results && data.results.length){
+      const e=data.results[0].elevation;
+      mostrar('ok','✅ ¡FUNCIONA!\n\nElevación: '+e+' metros\nDataset: '+data.results[0].dataset+'\nTiempo de respuesta: '+ms+' ms\n\nEsto significa que tu navegador SÍ permite usar este servicio. Podemos integrarlo en la app.');
+    } else {
+      mostrar('err','El servicio respondió pero sin datos válidos:\n'+JSON.stringify(data,null,2));
+    }
+  }catch(err){
+    mostrar('err','❌ El navegador BLOQUEÓ la consulta (probablemente CORS).\n\nError: '+err.message+'\n\nEsto significa que Open Topo Data no se puede usar directamente desde la app en este navegador. Tendríamos que probar otro servicio o un plan B.');
+  }
+}
+
+async function probarMulti(){
+  // simular los vértices de un lote (varias coordenadas en una sola consulta)
+  const puntos='5.5353,-73.3678|5.5360,-73.3680|5.5358,-73.3670|5.5350,-73.3672';
+  mostrar('info','⏳ Consultando 4 puntos de un lote en una sola llamada ...');
+  const url='https://api.opentopodata.org/v1/srtm30m?locations='+puntos;
+  try{
+    const resp=await fetch(url);
+    if(!resp.ok){ mostrar('err','⚠️ Error HTTP '+resp.status); return; }
+    const data=await resp.json();
+    if(data.status==='OK'){
+      const alts=data.results.map(r=>r.elevation).filter(v=>v!=null);
+      const min=Math.min(...alts), max=Math.max(...alts), prom=alts.reduce((a,b)=>a+b,0)/alts.length;
+      mostrar('ok','✅ ¡FUNCIONA con varios puntos!\n\nAlturas: '+alts.join(', ')+' m\n\nMÍNIMA: '+min+' m\nMÁXIMA: '+max+' m\nPROMEDIO: '+prom.toFixed(1)+' m\n\nAsí se verían los datos de un lote. (Nota: si todas son iguales, los puntos cayeron en la misma celda de 30 m.)');
+    } else {
+      mostrar('err','Respuesta sin datos válidos:\n'+JSON.stringify(data,null,2));
+    }
+  }catch(err){
+    mostrar('err','❌ Bloqueado por el navegador (CORS).\nError: '+err.message);
+  }
+}
+</script>
+</body>
+</html>
