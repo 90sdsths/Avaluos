@@ -65,7 +65,9 @@ function crearMapaCampo(containerId){
         <button type="button" class="mc-sb" id="${id}_bprom">⊕ Promediar (10s)</button>
         <button type="button" class="mc-sb" id="${id}_bimpkml">📂 Importar KML</button>
         <button type="button" class="mc-sb" id="${id}_bimpgeo">🗂 Importar IGAC (GeoJSON)</button>
+        <button type="button" class="mc-sb" id="${id}_bcentrarref">🎯 Centrar en capa IGAC</button>
         <button type="button" class="mc-sb" id="${id}_bcoord">🧭 Ir a coordenada</button>
+        <button type="button" class="mc-sb" id="${id}_boffline">⬇ Descargar mapa (offline)</button>
         <button type="button" class="mc-sb" id="${id}_bkml">💾 Exportar KML</button>
         <button type="button" class="mc-sb" id="${id}_bclrref" style="color:#D93025">🧹 Quitar capas IGAC</button>
       </div>
@@ -258,7 +260,7 @@ function crearMapaCampo(containerId){
     const av=document.getElementById(id+'_acc');if(av)av.textContent='±'+a+' m';
     const co=document.getElementById(id+'_coord');if(co)co.textContent=lat.toFixed(6)+', '+lng.toFixed(6);
     if(map){
-      if(!marcadorPos){marcadorPos=L.circleMarker([lat,lng],{radius:7,color:'#fff',weight:2,fillColor:'#1A73E8',fillOpacity:1}).addTo(map);accCircle=L.circle([lat,lng],{radius:acc,color:'#1A73E8',weight:1,fillOpacity:0.08}).addTo(map);map.setView([lat,lng],17);}
+      if(!marcadorPos){marcadorPos=L.circleMarker([lat,lng],{radius:7,color:'#fff',weight:2,fillColor:'#1A73E8',fillOpacity:1}).addTo(map);accCircle=L.circle([lat,lng],{radius:acc,color:'#1A73E8',weight:1,fillOpacity:0.08}).addTo(map);if(!referencias.length&&!puntos.length)map.setView([lat,lng],17);}
       else{marcadorPos.setLatLng([lat,lng]);accCircle.setLatLng([lat,lng]).setRadius(acc);}
     }
     if(modoMapa==='ruta'&&tracking){const last=rutaPts[rutaPts.length-1];if(!last||distancia(last,ultimaPos)>2){rutaPts.push({lat,lng});redibujar();}}
@@ -302,6 +304,8 @@ function crearMapaCampo(containerId){
     document.getElementById(id+'_filekml').addEventListener('change',importarKML);
     document.getElementById(id+'_filegeo').addEventListener('change',importarGeoJSON);
     document.getElementById(id+'_bcoord').addEventListener('click',()=>{cerrarSheet();irACoordenada();});
+    document.getElementById(id+'_bcentrarref').addEventListener('click',()=>{cerrarSheet();centrarEnReferencia();});
+    document.getElementById(id+'_boffline').addEventListener('click',()=>{cerrarSheet();descargarOffline();});
     document.getElementById(id+'_bkml').addEventListener('click',()=>{cerrarSheet();descargarKML();});
     document.getElementById(id+'_bclrref').addEventListener('click',()=>{cerrarSheet();if(referencias.length&&confirm('¿Quitar las capas IGAC importadas?')){referencias=[];redibujar();}});
   }
@@ -389,6 +393,53 @@ function crearMapaCampo(containerId){
     if(m.length<2){alert('Formato no válido.');return;}
     const[lat,lng]=m;
     if(map){map.setView([lat,lng],17);setHint('📍 Centrado en '+lat.toFixed(5)+', '+lng.toFixed(5));}
+  }
+
+  // Centra el mapa en la capa de referencia (IGAC) cargada
+  function centrarEnReferencia(){
+    if(!referencias.length){ alert('No has importado ninguna capa IGAC todavía.'); return; }
+    const todos=[];
+    referencias.forEach(ref=>ref.anillos.forEach(a=>a.forEach(p=>todos.push([p.lat,p.lng]))));
+    if(!todos.length){ alert('La capa IGAC no tiene geometría.'); return; }
+    if(map){
+      map.fitBounds(L.latLngBounds(todos),{padding:[40,40]});
+      setHint('🎯 Centrado en la capa IGAC ('+referencias.length+' capa(s)).');
+    }
+  }
+
+  // Descarga (cachea) los tiles del área visible para usarla sin internet
+  function descargarOffline(){
+    if(!map){ alert('El mapa no está activo.'); return; }
+    const b=map.getBounds(), z=map.getZoom();
+    const zMax=Math.min(z+2,18);
+    let total=0, hechos=0;
+    const tiles=[];
+    for(let zoom=z; zoom<=zMax; zoom++){
+      const nw=proyectar(b.getNorthWest(),zoom), se=proyectar(b.getSouthEast(),zoom);
+      for(let x=nw.x; x<=se.x; x++) for(let y=nw.y; y<=se.y; y++) tiles.push({x,y,z:zoom});
+    }
+    total=tiles.length;
+    if(total===0){ alert('Nada que descargar.'); return; }
+    if(total>800){ if(!confirm('Se descargarán ~'+total+' fragmentos del mapa. ¿Continuar? (acércate para descargar menos área)')) return; }
+    setHint('⬇ Descargando mapa offline: 0/'+total);
+    const cfg=CAPAS[capaNombre];
+    tiles.forEach(t=>{
+      const sub=cfg.sub?cfg.sub[(t.x+t.y)%cfg.sub.length]:'';
+      let url=cfg.url.replace('{z}',t.z).replace('{s}',sub);
+      url=cfg.yx?url.replace('{y}',t.y).replace('{x}',t.x):url.replace('{x}',t.x).replace('{y}',t.y);
+      const img=new Image();
+      img.crossOrigin='anonymous';
+      img.onload=img.onerror=()=>{ hechos++; if(hechos%25===0||hechos===total) setHint('⬇ Descargando mapa offline: '+hechos+'/'+total); if(hechos===total) setHint('✅ Mapa offline descargado para esta zona ('+total+' fragmentos). Ya puedes usarlo sin internet aquí.'); };
+      img.src=url;
+    });
+  }
+  // proyección lat/lng -> índice de tile (x,y) para un zoom
+  function proyectar(latlng,z){
+    const lat=latlng.lat, lng=latlng.lng;
+    const n=Math.pow(2,z);
+    const x=Math.floor((lng+180)/360*n);
+    const y=Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*n);
+    return {x,y};
   }
 
   function descargarKML(){

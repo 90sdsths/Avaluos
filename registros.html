@@ -149,8 +149,13 @@ async function descargar(id){
 }
 async function exportarKml(id){
   const r=await AvaluosStorage.obtener(id); if(!r) return;
-  const kml=r.mapa_campo&&r.mapa_campo.kml;
-  if(!kml){ alert('Este registro no tiene un predio mapeado todavía.'); return; }
+  const mc=r.mapa_campo;
+  if(!mc){ alert('Este registro no tiene un predio mapeado todavía.'); return; }
+  // Regenerar el KML desde los datos para que nunca falte nada
+  // (el kml guardado puede ser de una versión vieja del registro)
+  let kml=generarKmlCompleto(mc);
+  if(!kml) kml=mc.kml;  // respaldo
+  if(!kml){ alert('Este registro no tiene mediciones para exportar.'); return; }
   const nombre=baseNombre(r)+'_Kml.kml';
   const compartido=await AvaluosStorage.compartirArchivo(nombre,kml);
   if(!compartido){
@@ -158,6 +163,34 @@ async function exportarKml(id){
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nombre;a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
+}
+// Genera un KML con TODO: predio (campo), ruta, puntos sueltos y capas IGAC
+function generarKmlCompleto(mc){
+  const fmtArea=m=>m>=10000?(m/10000).toFixed(3)+' ha':Math.round(m)+' m²';
+  let pm='';
+  const pts=mc.puntos||[];
+  if(pts.length>=3){
+    const c=pts.concat([pts[0]]).map(p=>p.lng+','+p.lat+',0').join(' ');
+    pm+=`<Placemark><name>Predio levantado (${fmtArea(mc.area_m2||0)})</name><Style><LineStyle><color>ff0066ff</color><width>3</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style><Polygon><outerBoundaryIs><LinearRing><coordinates>${c}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
+  }
+  const ruta=mc.ruta||[];
+  if(ruta.length>=2){
+    const c=ruta.map(p=>p.lng+','+p.lat+',0').join(' ');
+    pm+=`<Placemark><name>Ruta</name><Style><LineStyle><color>ffe8731a</color><width>4</width></LineStyle></Style><LineString><coordinates>${c}</coordinates></LineString></Placemark>`;
+  }
+  (mc.sueltos||[]).forEach(p=>{
+    pm+=`<Placemark><name>${(p.nombre||'Punto').replace(/[<>&]/g,'')}</name><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`;
+  });
+  (mc.referencias||[]).forEach(ref=>{
+    (ref.anillos||[]).forEach((anillo,i)=>{
+      if(!anillo.length) return;
+      const c=anillo.concat([anillo[0]]).map(p=>p.lng+','+p.lat+',0').join(' ');
+      const nom=(ref.nombre||'IGAC').replace(/[<>&]/g,'')+(ref.anillos.length>1?(' ('+(i+1)+')'):'');
+      pm+=`<Placemark><name>${nom}</name><Style><LineStyle><color>ffff0000</color><width>2</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style><Polygon><outerBoundaryIs><LinearRing><coordinates>${c}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
+    });
+  });
+  if(!pm) return '';
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Mapeo avalúo</name>${pm}</Document></kml>`;
 }
 async function borrar(id){
   if(!confirm('¿Eliminar este registro de forma permanente?\n\nEsto borra solo la copia local; el JSON ya guardado en OneDrive no se elimina.'))return;
