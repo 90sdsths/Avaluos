@@ -12,6 +12,10 @@ function crearMapaCampo(containerId){
   let puntos=[], rutaPts=[], sueltos=[];
   let referencias=[]; // capas importadas (IGAC u otros): [{nombre, anillos:[[{lat,lng}...]]}]
   let elevacion=null; // {min,max,prom,pendiente_pct,pendiente_grados,puntos_usados, pendiente_calc}
+  let historico=[];   // geometrías de otros avalúos (capa de fondo gris)
+  let capaHist=null;  // grupo Leaflet de la capa histórica
+  let histVisible=true;
+  let avaluoActualId=null; // id del avalúo en edición, para no dibujarlo en el fondo
   let modoMapa='campo';
   let map=null, mapaIniciado=false, watchId=null, ultimaPos=null, tracking=false, autoCampo=false;
   let capaPoligono,capaMarcadores,capaRuta,capaRef,marcadorPos,accCircle,capaActual;
@@ -73,6 +77,7 @@ function crearMapaCampo(containerId){
         <button type="button" class="mc-sb" id="${id}_bimpkml">📂 Importar KML</button>
         <button type="button" class="mc-sb" id="${id}_bimpgeo">🗂 Importar IGAC (GeoJSON)</button>
         <button type="button" class="mc-sb" id="${id}_bcentrarref">🎯 Centrar en capa IGAC</button>
+        <button type="button" class="mc-sb" id="${id}_bhist">👁 Mostrar/ocultar mis trabajos</button>
         <button type="button" class="mc-sb" id="${id}_bcoord">🧭 Ir a coordenada</button>
         <button type="button" class="mc-sb" id="${id}_boffline">⬇ Descargar mapa (offline)</button>
         <button type="button" class="mc-sb" id="${id}_bkml">💾 Exportar KML</button>
@@ -202,6 +207,7 @@ function crearMapaCampo(containerId){
     wire();
     redibujar();
     if(puntos.length>=2)map.fitBounds(L.latLngBounds(puntos.map(p=>[p.lat,p.lng])),{padding:[50,50]});
+    cargarHistorico(); // capa de fondo con trabajos anteriores
   }
 
   function iconoVertice(n){return L.divIcon({className:'',html:`<div style="width:20px;height:20px;background:#FF6D00;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;font-family:sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.4);">${n}</div>`,iconSize:[20,20],iconAnchor:[10,10]});}
@@ -312,6 +318,7 @@ function crearMapaCampo(containerId){
     document.getElementById(id+'_filegeo').addEventListener('change',importarGeoJSON);
     document.getElementById(id+'_bcoord').addEventListener('click',()=>{cerrarSheet();irACoordenada();});
     document.getElementById(id+'_bcentrarref').addEventListener('click',()=>{cerrarSheet();centrarEnReferencia();});
+    document.getElementById(id+'_bhist').addEventListener('click',()=>{cerrarSheet();histVisible=!histVisible;dibujarHistorico();setHint(histVisible?'👁 Mostrando tus trabajos anteriores':'🚫 Trabajos anteriores ocultos');});
     document.getElementById(id+'_boffline').addEventListener('click',()=>{cerrarSheet();descargarOffline();});
     document.getElementById(id+'_bkml').addEventListener('click',()=>{cerrarSheet();descargarKML();});
     document.getElementById(id+'_bclrref').addEventListener('click',()=>{cerrarSheet();if(referencias.length&&confirm('¿Quitar las capas IGAC importadas?')){referencias=[];redibujar();}});
@@ -400,6 +407,40 @@ function crearMapaCampo(containerId){
     if(m.length<2){alert('Formato no válido.');return;}
     const[lat,lng]=m;
     if(map){map.setView([lat,lng],17);setHint('📍 Centrado en '+lat.toFixed(5)+', '+lng.toFixed(5));}
+  }
+
+  // Dibuja la capa de fondo con los trabajos anteriores (gris tenue, no editable)
+  function dibujarHistorico(){
+    if(!map) return;
+    if(capaHist){ map.removeLayer(capaHist); capaHist=null; }
+    if(!histVisible || !historico.length) return;
+    capaHist=L.layerGroup();
+    historico.forEach(g=>{
+      const info=(g.nombre||'Avalúo')+(g.municipio?(' · '+g.municipio):'')+(g.fecha?(' · '+g.fecha):'');
+      if(g.puntos && g.puntos.length>=3){
+        const latlngs=g.puntos.map(p=>[p.lat,p.lng]);
+        L.polygon(latlngs,{color:'#9aa0a6',weight:2,opacity:0.7,fillColor:'#9aa0a6',fillOpacity:0.12,dashArray:'4,4',interactive:true}).bindPopup('📐 '+info).addTo(capaHist);
+      }
+      if(g.ruta && g.ruta.length>=2){
+        const latlngs=g.ruta.map(p=>[p.lat,p.lng]);
+        L.polyline(latlngs,{color:'#9aa0a6',weight:2,opacity:0.6,dashArray:'2,5',interactive:false}).addTo(capaHist);
+      }
+      (g.sueltos||[]).forEach(p=>{
+        L.circleMarker([p.lat,p.lng],{radius:4,color:'#9aa0a6',weight:1,fillColor:'#bdc1c6',fillOpacity:0.6,interactive:true}).bindPopup('📍 '+(p.nombre||'Punto')+'\n'+info).addTo(capaHist);
+      });
+    });
+    capaHist.addTo(map);
+    capaHist.bringToBack();
+    if(capaActual)capaActual.bringToBack();
+  }
+
+  // Carga las geometrías de otros avalúos desde el almacenamiento
+  async function cargarHistorico(){
+    try{
+      if(!window.AvaluosStorage || !AvaluosStorage.geometriasMaestro) return;
+      historico=await AvaluosStorage.geometriasMaestro(avaluoActualId)||[];
+      dibujarHistorico();
+    }catch(e){ historico=[]; }
   }
 
   // Centra el mapa en la capa de referencia (IGAC) cargada
@@ -591,6 +632,8 @@ function crearMapaCampo(containerId){
     // Calcula alturas (al guardar). Devuelve promesa con el resumen o null.
     calcularAlturas: calcularAlturas,
     // ¿Hay un lote pero las alturas quedaron pendientes de calcular?
-    alturasPendientes: ()=> (puntos.length>=3 && (!elevacion || !elevacion.pendiente_calc))
+    alturasPendientes: ()=> (puntos.length>=3 && (!elevacion || !elevacion.pendiente_calc)),
+    // Indica el id del avalúo en edición (para no dibujarlo en el fondo histórico)
+    setAvaluoId:(idAv)=>{ avaluoActualId=idAv||null; if(map)cargarHistorico(); }
   };
 }

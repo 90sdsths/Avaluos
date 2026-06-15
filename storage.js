@@ -121,6 +121,10 @@
           const reg=JSON.parse(txt);
           if(reg && (reg.tipo==='URBANO'||reg.tipo==='RURAL')){
             reg._origen='carpeta';
+            if(!reg.id){ reg.id='avaluo_'+Date.now()+'_'+Math.floor(Math.random()*100000); }
+            // Guardar en IndexedDB para que 'obtener(id)' lo encuentre al editar,
+            // aunque la base interna se haya borrado en este equipo.
+            try{ await idbPut(STORE_REG, reg); }catch(e){}
             registros.push(reg);
           }
         }catch(e){}
@@ -172,6 +176,111 @@
     return 0;
   }
 
+  // ===== MAPA MAESTRO (capa con todas las geometrías de todos los avalúos) =====
+  // Extrae solo la geometría ligera de un registro (sin fotos ni datos del form)
+  function geometriaDe(reg){
+    if(!reg || !reg.mapa_campo) return null;
+    const mc=reg.mapa_campo;
+    const tieneAlgo=(mc.puntos&&mc.puntos.length)||(mc.ruta&&mc.ruta.length)||(mc.sueltos&&mc.sueltos.length);
+    if(!tieneAlgo) return null;
+    // submuestrear la ruta: para el fondo no hace falta cada punto del track
+    let ruta=(mc.ruta||[]);
+    if(ruta.length>120){ const paso=Math.ceil(ruta.length/120); ruta=ruta.filter((_,i)=>i%paso===0); }
+    return {
+      id:reg.id,
+      nombre:(reg.nombre_base||reg.contratante||'Avalúo'),
+      tipo:reg.tipo||'',
+      municipio:reg.municipio||'',
+      fecha:reg.fecha_visita_texto||'',
+      puntos:(mc.puntos||[]).map(p=>({lat:p.lat,lng:p.lng})),
+      ruta:ruta.map(p=>({lat:p.lat,lng:p.lng})),
+      sueltos:(mc.sueltos||[]).map(p=>({lat:p.lat,lng:p.lng,nombre:p.nombre||'Punto'})),
+      area_m2:mc.area_m2||0
+    };
+  }
+
+  // Lee el mapa maestro (de IndexedDB)
+  async function leerMaestro(){
+    try{ const m=await idbGet(STORE_CFG,'mapaMaestro'); return (m&&m.geometrias)?m.geometrias:[]; }catch(e){ return []; }
+  }
+
+  // Actualiza el maestro con la geometría de un registro (sin duplicar por id).
+  // PRIORIDAD AL CELULAR: en el celular siempre se reescribe el archivo de la
+  // carpeta; en el PC se actualiza la copia interna pero NO se pisa el archivo
+  // (para no borrar lo que sincronizó el celular).
+  async function actualizarMaestro(reg){
+    const geo=geometriaDe(reg);
+    let lista=await leerMaestro();
+    // quitar versión vieja del mismo id
+    lista=lista.filter(g=>g.id!==reg.id);
+    if(geo) lista.push(geo);
+    await idbPut(STORE_CFG,{key:'mapaMaestro', geometrias:lista});
+    // En escritorio (con carpeta), regenerar también un JSON+KML maestro,
+    // pero solo si NO existe uno más nuevo del celular (prioridad al celular).
+    if(FSA && await Storage.tieneCarpeta()){
+      const esMovil = !('showDirectoryPicker' in global) ? true : false;
+      // En PC: fusionar con lo que ya haya en el archivo para no borrar lo del celular
+      await escribirMaestroArchivo(lista, /*forzar=*/false);
+    } else {
+      // Celular (modo descarga): el maestro se exporta bajo demanda con un botón.
+      // (no descargamos en cada guardado para no llenar de archivos)
+    }
+    return lista;
+  }
+
+  // Escribe _MapaMaestro.json y .kml en la carpeta. Si forzar=false y ya hay
+  // un archivo, fusiona por id dando prioridad a la geometría existente
+  // (que pudo venir del celular vía OneDrive).
+  async function escribirMaestroArchivo(listaLocal, forzar){
+    if(!FSA) return false;
+    try{
+      const handle=await idbGet(STORE_CFG,'dirHandle');
+      if(!handle) return false;
+      if(!(await verificarPermiso(handle))) return false;
+      let lista=listaLocal.slice();
+      if(!forzar){
+        // leer el maestro existente de la carpeta y fusionar (prioridad al de la carpeta)
+        try{
+          const fh=await handle.getFileHandle('_MapaMaestro.json',{create:false});
+          const f=await fh.getFile(); const prev=JSON.parse(await f.text());
+          if(prev&&prev.geometrias){
+            const porId={};
+            // primero lo local
+            lista.forEach(g=>porId[g.id]=g);
+            // luego lo del archivo (celular) PISA lo local -> prioridad celular
+            prev.geometrias.forEach(g=>porId[g.id]=g);
+            lista=Object.values(porId);
+          }
+        }catch(e){ /* no existe aún, se crea */ }
+      }
+      const jsonTxt=JSON.stringify({actualizado:new Date().toISOString(),geometrias:lista},null,2);
+      const fh1=await handle.getFileHandle('_MapaMaestro.json',{create:true});
+      const w1=await fh1.createWritable(); await w1.write(jsonTxt); await w1.close();
+      const fh2=await handle.getFileHandle('_MapaMaestro.kml',{create:true});
+      const w2=await fh2.createWritable(); await w2.write(maestroAKml(lista)); await w2.close();
+      return true;
+    }catch(e){ console.error('maestro',e); return false; }
+  }
+
+  function maestroAKml(lista){
+    let pm='';
+    lista.forEach(g=>{
+      const nom=(g.nombre||'Avalúo').replace(/[<>&]/g,'');
+      if(g.puntos&&g.puntos.length>=3){
+        const c=g.puntos.concat([g.puntos[0]]).map(p=>p.lng+','+p.lat+',0').join(' ');
+        pm+=`<Placemark><name>${nom}</name><Style><LineStyle><color>ff888888</color><width>2</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style><Polygon><outerBoundaryIs><LinearRing><coordinates>${c}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
+      }
+      if(g.ruta&&g.ruta.length>=2){
+        const c=g.ruta.map(p=>p.lng+','+p.lat+',0').join(' ');
+        pm+=`<Placemark><name>${nom} (ruta)</name><Style><LineStyle><color>ff888888</color><width>2</width></LineStyle></Style><LineString><coordinates>${c}</coordinates></LineString></Placemark>`;
+      }
+      (g.sueltos||[]).forEach(p=>{
+        pm+=`<Placemark><name>${(p.nombre||'Punto').replace(/[<>&]/g,'')}</name><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`;
+      });
+    });
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Mapa maestro de avalúos</name>${pm}</Document></kml>`;
+  }
+
   // ---------- API pública ----------
   const Storage = {
     soportaCarpeta: FSA,
@@ -191,6 +300,8 @@
       await idbPut(STORE_REG, registro);
       // copia de respaldo en localStorage (para recuperación rápida)
       try{ localStorage.setItem('ultimo_autoguardado', JSON.stringify(registro)); }catch(e){}
+      // actualizar el mapa maestro (capa de fondo con todos los trabajos)
+      if(!opts.silencioso){ try{ await actualizarMaestro(registro); }catch(e){} }
 
       const contenido=JSON.stringify(registro,null,2);
       const nombre=registro.nombre_archivo || (registro.id+'.json');
@@ -263,8 +374,63 @@
       deCarpeta.forEach(poner);
       return Object.values(mapa);
     },
-    obtener(id){ return idbGet(STORE_REG, id); },
-    eliminar(id){ return idbDel(STORE_REG, id); }
+    async obtener(id){
+      // 1) buscar en la base interna
+      let r=await idbGet(STORE_REG, id);
+      if(r) return r;
+      // 2) si no está (ej. base interna borrada en este equipo), buscar en la carpeta
+      try{
+        const deCarpeta=await leerCarpeta();
+        r=deCarpeta.find(x=>x.id===id);
+        if(r) return r;
+      }catch(e){}
+      return null;
+    },
+    async eliminar(id){
+      await idbDel(STORE_REG, id);
+      // quitar también del mapa maestro
+      try{
+        let lista=await leerMaestro();
+        lista=lista.filter(g=>g.id!==id);
+        await idbPut(STORE_CFG,{key:'mapaMaestro', geometrias:lista});
+        if(FSA && await this.tieneCarpeta()){ await escribirMaestroArchivo(lista, true); }
+      }catch(e){}
+      return true;
+    },
+    // Geometrías de todos los trabajos, para dibujar la capa de fondo en el mapa.
+    // Fusiona la copia interna con el archivo maestro de la carpeta (prioridad
+    // al archivo, que pudo venir del celular vía OneDrive).
+    async geometriasMaestro(excluirId){
+      let lista=await leerMaestro();
+      if(FSA && await this.tieneCarpeta()){
+        try{
+          const handle=await idbGet(STORE_CFG,'dirHandle');
+          const fh=await handle.getFileHandle('_MapaMaestro.json',{create:false});
+          const f=await fh.getFile(); const prev=JSON.parse(await f.text());
+          if(prev&&prev.geometrias){
+            const porId={};
+            lista.forEach(g=>porId[g.id]=g);
+            prev.geometrias.forEach(g=>porId[g.id]=g); // prioridad celular
+            lista=Object.values(porId);
+          }
+        }catch(e){}
+      }
+      if(excluirId) lista=lista.filter(g=>g.id!==excluirId);
+      return lista;
+    },
+    // Exporta el maestro como descarga (para el celular)
+    async exportarMaestro(){
+      const lista=await this.geometriasMaestro(null);
+      return { json:JSON.stringify({actualizado:new Date().toISOString(),geometrias:lista},null,2), kml:maestroAKml(lista), n:lista.length };
+    },
+    // Reconstruye el maestro desde TODOS los registros (útil la 1ª vez)
+    async reconstruirMaestro(){
+      const todos=await this.listarTodos();
+      const geos=[]; todos.forEach(r=>{ const g=geometriaDe(r); if(g) geos.push(g); });
+      await idbPut(STORE_CFG,{key:'mapaMaestro', geometrias:geos});
+      if(FSA && await this.tieneCarpeta()){ await escribirMaestroArchivo(geos, true); }
+      return geos.length;
+    }
   };
 
   global.AvaluosStorage = Storage;

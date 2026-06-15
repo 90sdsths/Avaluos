@@ -521,6 +521,7 @@ function limpiar(){
   setV('f_matricula',d.matricula);setV('f_codigo_cat',d.codigo_catastral);setV('f_titulo',d.titulo_adquisicion);
   setV('f_afectaciones',d.afectaciones);setV('f_estabilidad',d.estabilidad_suelo);
   setV('f_servidumbres',d.servidumbres);setV('f_consideraciones',d.consideraciones);
+  if(mapaCampo&&mapaCampo.setAvaluoId)mapaCampo.setAvaluoId(d.id);
   if(d.mapa_campo&&mapaCampo)mapaCampo.setData(d.mapa_campo);
   // Si quedaron alturas pendientes de calcular (se guardó sin internet), reintentar ahora
   if(mapaCampo && mapaCampo.alturasPendientes && mapaCampo.alturasPendientes() && navigator.onLine){

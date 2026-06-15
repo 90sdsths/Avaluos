@@ -571,6 +571,7 @@ function limpiar(){
   setV('f_propietario',d.propietario);setV('f_matricula',d.matricula);setV('f_codigo_cat',d.codigo_catastral);
   setV('f_titulo',d.titulo_adquisicion);setV('f_uso_suelo',d.uso_suelo);
   setV('f_afectaciones',d.afectaciones);setV('f_consideraciones',d.consideraciones);
+  if(mapaCampo&&mapaCampo.setAvaluoId)mapaCampo.setAvaluoId(d.id);
   if(d.mapa_campo&&mapaCampo)mapaCampo.setData(d.mapa_campo);
   if(mapaCampo && mapaCampo.alturasPendientes && mapaCampo.alturasPendientes() && navigator.onLine){
     setTimeout(()=>{ mapaCampo.calcularAlturas().catch(()=>{}); }, 1500);

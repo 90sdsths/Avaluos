@@ -55,6 +55,7 @@
 <div class="container">
   <button class="btn-import" id="btnImport">📥 Importar registro (Db.json) desde OneDrive/archivos</button>
   <button class="btn-folder-rd" id="btnFolderRd">🔄 Leer carpeta de OneDrive (computador)</button>
+  <button class="btn-folder-rd" id="btnMaestro" style="margin-top:6px">🗺️ Generar mapa maestro (mis trabajos en el mapa)</button>
   <div class="aviso-carpeta" id="avisoCarpeta" style="display:none">💡 En el computador puedes elegir la carpeta de OneDrive para que se listen automáticamente todos los registros guardados ahí.</div>
   <input type="file" id="fileImport" accept=".json,application/json" multiple style="display:none">
   <div class="filtros">
@@ -209,6 +210,18 @@ async function borrar(id){
 // ── Importar uno o varios Db.json (desde OneDrive/FolderSync o cualquier carpeta) ──
 document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('fileImport').click());
 document.getElementById('btnFolderRd').addEventListener('click',recargarCarpeta);
+document.getElementById('btnMaestro').addEventListener('click',async()=>{
+  const btn=document.getElementById('btnMaestro');
+  btn.textContent='⏳ Generando mapa maestro...';
+  try{
+    const n=await AvaluosStorage.reconstruirMaestro();
+    btn.textContent='✅ Mapa maestro generado ('+n+' trabajos)';
+    setTimeout(()=>{ btn.textContent='🗺️ Generar mapa maestro (mis trabajos en el mapa)'; },2500);
+  }catch(e){
+    btn.textContent='⚠️ No se pudo generar';
+    setTimeout(()=>{ btn.textContent='🗺️ Generar mapa maestro (mis trabajos en el mapa)'; },2500);
+  }
+});
 document.getElementById('fileImport').addEventListener('change',async e=>{
   const files=[...e.target.files];
   if(!files.length)return;
