@@ -214,7 +214,7 @@
     // quitar versión vieja del mismo id
     lista=lista.filter(g=>g.id!==reg.id);
     if(geo) lista.push(geo);
-    await idbPut(STORE_CFG,{key:'mapaMaestro', geometrias:lista});
+    await idbPut(STORE_CFG,{geometrias:lista},'mapaMaestro');
     // En escritorio (con carpeta), regenerar también un JSON+KML maestro,
     // pero solo si NO existe uno más nuevo del celular (prioridad al celular).
     if(FSA && await Storage.tieneCarpeta()){
@@ -392,7 +392,7 @@
       try{
         let lista=await leerMaestro();
         lista=lista.filter(g=>g.id!==id);
-        await idbPut(STORE_CFG,{key:'mapaMaestro', geometrias:lista});
+        await idbPut(STORE_CFG,{geometrias:lista},'mapaMaestro');
         if(FSA && await this.tieneCarpeta()){ await escribirMaestroArchivo(lista, true); }
       }catch(e){}
       return true;
@@ -427,7 +427,7 @@
     async reconstruirMaestro(){
       const todos=await this.listarTodos();
       const geos=[]; todos.forEach(r=>{ const g=geometriaDe(r); if(g) geos.push(g); });
-      await idbPut(STORE_CFG,{key:'mapaMaestro', geometrias:geos});
+      await idbPut(STORE_CFG,{geometrias:geos},'mapaMaestro');
       if(FSA && await this.tieneCarpeta()){ await escribirMaestroArchivo(geos, true); }
       return geos.length;
     }
