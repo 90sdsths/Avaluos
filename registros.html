@@ -250,5 +250,12 @@ document.getElementById('fileImport').addEventListener('change',async e=>{
 
 cargar();
 </script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load",function(){
+    navigator.serviceWorker.register("sw.js").catch(function(e){console.log("SW no registrado:",e);});
+  });
+}
+</script>
 </body>
 </html>

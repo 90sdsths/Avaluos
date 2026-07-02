@@ -126,5 +126,12 @@ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPro
 document.getElementById('btnInstall').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;document.getElementById('installBanner').classList.remove('show');deferredPrompt=null;});
 refrescarEstado();
 </script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load",function(){
+    navigator.serviceWorker.register("sw.js").catch(function(e){console.log("SW no registrado:",e);});
+  });
+}
+</script>
 </body>
 </html>
