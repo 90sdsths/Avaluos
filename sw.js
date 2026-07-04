@@ -1,7 +1,7 @@
 // Service Worker — permite usar la app SIN INTERNET en campo.
 // Guarda en caché los archivos de la app y los reutiliza cuando no hay conexión.
 
-const CACHE = 'avaluos-v23';
+const CACHE = 'avaluos-v24';
 
 // Archivos propios de la app (rutas relativas al directorio del SW)
 const APP_FILES = [
@@ -82,10 +82,11 @@ self.addEventListener('fetch', (e) => {
     return; // dejar pasar a la red normalmente
   }
 
-  // App y recursos: "cache primero, luego red" (para que abra sin internet)
+  // App y recursos propios: "cache primero, luego red" (para que abra sin internet)
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const hit = await cache.match(req);
+    // buscar en caché ignorando parámetros de URL (?v=... etc.)
+    let hit = await cache.match(req, { ignoreSearch: true });
     if (hit) {
       // refrescar en segundo plano si hay red (no bloquea)
       fetch(req).then(r => { if (r.ok) cache.put(req, r.clone()); }).catch(() => {});
@@ -98,9 +99,14 @@ self.addEventListener('fetch', (e) => {
     } catch (err) {
       // si es una navegación (abrir una página) y no hay red, dar el index
       if (req.mode === 'navigate') {
-        const idx = await cache.match('./index.html');
+        const idx = await cache.match('./index.html', { ignoreSearch: true });
         if (idx) return idx;
       }
+      // último intento: buscar por nombre de archivo en cualquier entrada del caché
+      const todas = await cache.keys();
+      const nombre = url.pathname.split('/').pop();
+      const parecido = todas.find(k => k.url.split('/').pop() === nombre);
+      if (parecido) { const r = await cache.match(parecido); if (r) return r; }
       return new Response('Sin conexión y sin copia en caché.', { status: 503 });
     }
   })());

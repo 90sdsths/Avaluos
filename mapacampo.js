@@ -208,6 +208,16 @@ function crearMapaCampo(containerId){
     redibujar();
     if(puntos.length>=2)map.fitBounds(L.latLngBounds(puntos.map(p=>[p.lat,p.lng])),{padding:[50,50]});
     cargarHistorico(); // capa de fondo con trabajos anteriores
+    iniciarGPS(); // activar GPS automáticamente al abrir el mapa
+  }
+
+  // Inicia el seguimiento GPS (usado por el botón y al abrir el mapa)
+  function iniciarGPS(){
+    if(watchId!==null) return; // ya está activo
+    if(!navigator.geolocation){ return; }
+    setG('warn','Buscando...');
+    watchId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:30000});
+    const b=document.getElementById(id+'_bgps'); if(b)b.textContent='⏸ GPS';
   }
 
   function iconoVertice(n){return L.divIcon({className:'',html:`<div style="width:20px;height:20px;background:#FF6D00;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;font-family:sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.4);">${n}</div>`,iconSize:[20,20],iconAnchor:[10,10]});}
@@ -287,8 +297,7 @@ function crearMapaCampo(containerId){
     document.getElementById(id+'_seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;modoMapa=b.dataset.m;tracking=false;autoCampo=false;document.querySelectorAll('#'+id+'_seg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');document.getElementById(id+'_bauto').classList.remove('tracking');redibujar();});
     document.getElementById(id+'_bgps').addEventListener('click',()=>{
       if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;tracking=false;autoCampo=false;document.getElementById(id+'_bgps').textContent='▶ GPS';setG('','GPS');document.getElementById(id+'_bauto').classList.remove('tracking');return;}
-      if(!navigator.geolocation){alert('Sin geolocalización.');return;}
-      setG('warn','Buscando...');watchId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:30000});document.getElementById(id+'_bgps').textContent='⏸ GPS';
+      iniciarGPS();
     });
     document.getElementById(id+'_bmarcar').addEventListener('click',()=>{
       if(modoMapa==='ruta'){if(watchId===null){alert('Enciende el GPS.');return;}tracking=!tracking;document.getElementById(id+'_bmarcar').classList.toggle('tracking',tracking);document.getElementById(id+'_bmarcar').textContent=tracking?'⏹ Parar':'📍 Punto';return;}

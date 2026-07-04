@@ -129,9 +129,21 @@ refrescarEstado();
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load",function(){
-    navigator.serviceWorker.register("sw.js").catch(function(e){console.log("SW no registrado:",e);});
+    navigator.serviceWorker.register("sw.js").then(function(reg){
+      // Avisar cuando la app ya esté lista para usar sin internet
+      function verificarOffline(){
+        if(navigator.serviceWorker.controller){
+          var aviso=document.getElementById('offline-listo');
+          if(aviso) aviso.style.display='block';
+        }
+      }
+      if(reg.active) verificarOffline();
+      navigator.serviceWorker.addEventListener('controllerchange',verificarOffline);
+      setTimeout(verificarOffline,2000);
+    }).catch(function(e){console.log("SW no registrado:",e);});
   });
 }
 </script>
+    <div id="offline-listo" style="display:none;margin:12px auto;max-width:560px;padding:10px 14px;background:#E6F4EA;border:1.5px solid #34A853;border-radius:10px;color:#1E7E34;font-size:13px;text-align:center;">✅ App lista para usar sin internet</div>
 </body>
 </html>
