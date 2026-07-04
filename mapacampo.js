@@ -199,6 +199,10 @@ function crearMapaCampo(containerId){
     map=L.map(id+'_map',{zoomControl:false,attributionControl:false}).setView(centro, puntos.length?17:13);
     L.control.zoom({position:'bottomright'}).addTo(map);
     capaActual=crearCapa(CAPAS[capaNombre]).addTo(map);
+    // Pane dedicado para la capa histórica: por encima del mapa base pero
+    // por debajo de las mediciones activas (IGAC, polígono, marcadores).
+    map.createPane('paneHist');
+    map.getPane('paneHist').style.zIndex=350; // tiles=200, overlay=400
     capaRef=L.layerGroup().addTo(map);
     capaPoligono=L.layerGroup().addTo(map);
     capaRuta=L.layerGroup().addTo(map);
@@ -428,19 +432,19 @@ function crearMapaCampo(containerId){
       const info=(g.nombre||'Avalúo')+(g.municipio?(' · '+g.municipio):'')+(g.fecha?(' · '+g.fecha):'');
       if(g.puntos && g.puntos.length>=3){
         const latlngs=g.puntos.map(p=>[p.lat,p.lng]);
-        L.polygon(latlngs,{color:'#9aa0a6',weight:2,opacity:0.7,fillColor:'#9aa0a6',fillOpacity:0.12,dashArray:'4,4',interactive:true}).bindPopup('📐 '+info).addTo(capaHist);
+        L.polygon(latlngs,{pane:'paneHist',color:'#e8eaed',weight:2.5,opacity:0.95,fillColor:'#9aa0a6',fillOpacity:0.18,dashArray:'5,4',interactive:true}).bindPopup('📐 '+info).addTo(capaHist);
       }
       if(g.ruta && g.ruta.length>=2){
         const latlngs=g.ruta.map(p=>[p.lat,p.lng]);
-        L.polyline(latlngs,{color:'#9aa0a6',weight:2,opacity:0.6,dashArray:'2,5',interactive:false}).addTo(capaHist);
+        L.polyline(latlngs,{pane:'paneHist',color:'#e8eaed',weight:2.5,opacity:0.85,dashArray:'3,5',interactive:false}).addTo(capaHist);
       }
       (g.sueltos||[]).forEach(p=>{
-        L.circleMarker([p.lat,p.lng],{radius:4,color:'#9aa0a6',weight:1,fillColor:'#bdc1c6',fillOpacity:0.6,interactive:true}).bindPopup('📍 '+(p.nombre||'Punto')+'\n'+info).addTo(capaHist);
+        L.circleMarker([p.lat,p.lng],{pane:'paneHist',radius:5,color:'#ffffff',weight:1.5,fillColor:'#9aa0a6',fillOpacity:0.9,interactive:true}).bindPopup('📍 '+(p.nombre||'Punto')+'\n'+info).addTo(capaHist);
       });
     });
     capaHist.addTo(map);
-    capaHist.bringToBack();
-    if(capaActual)capaActual.bringToBack();
+    // El pane 'paneHist' (z-index 350) mantiene estos shapes por encima del
+    // mapa base y por debajo de la medición activa, sin reordenar nada.
   }
 
   // Carga las geometrías de otros avalúos desde el almacenamiento
