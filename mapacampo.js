@@ -18,6 +18,8 @@ function crearMapaCampo(containerId){
   let avaluoActualId=null; // id del avalúo en edición, para no dibujarlo en el fondo
   let modoMapa='campo';
   let map=null, mapaIniciado=false, watchId=null, ultimaPos=null, tracking=false, autoCampo=false;
+  let wakeLock=null;      // para mantener la pantalla encendida al trazar ruta
+  let huboSalto=false;    // marca que la app volvió del segundo plano (tramo interpolado)
   let capaPoligono,capaMarcadores,capaRuta,capaRef,marcadorPos,accCircle,capaActual;
   let capaNombre='satelital';
 
@@ -153,7 +155,7 @@ function crearMapaCampo(containerId){
         abrir();
       } else {
         // plegada: apagar GPS para ahorrar batería
-        if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;tracking=false;autoCampo=false;setG('','GPS');const b=document.getElementById(id+'_bgps');if(b)b.textContent='▶ GPS';}
+        if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;tracking=false;autoCampo=false;setG('','GPS');const b=document.getElementById(id+'_bgps');if(b)b.textContent='▶ GPS';liberarWakeLock();}
       }
     });
     obs.observe(card,{attributes:true,attributeFilter:['class']});
@@ -222,7 +224,31 @@ function crearMapaCampo(containerId){
     setG('warn','Buscando...');
     watchId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:30000});
     const b=document.getElementById(id+'_bgps'); if(b)b.textContent='⏸ GPS';
+    pedirWakeLock();
   }
+
+  // Mantener la pantalla encendida mientras se usa el GPS (evita cortes por bloqueo)
+  async function pedirWakeLock(){
+    try{
+      if('wakeLock' in navigator && !wakeLock){
+        wakeLock=await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release',()=>{ wakeLock=null; });
+      }
+    }catch(e){ /* algunos navegadores lo niegan; no es crítico */ }
+  }
+  function liberarWakeLock(){ try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(e){} }
+
+  // Cuando la app vuelve del segundo plano: reactivar wake lock, y si se estaba
+  // trazando una ruta, marcar que el próximo punto abre un tramo interpolado.
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'){
+      if(watchId!==null){ pedirWakeLock(); }
+      if(modoMapa==='ruta'&&tracking){
+        huboSalto=true;
+        setHint('⚠️ La ruta se pausó en segundo plano. El tramo se marcará como aproximado (línea recta).');
+      }
+    }
+  });
 
   function iconoVertice(n){return L.divIcon({className:'',html:`<div style="width:20px;height:20px;background:#FF6D00;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;font-family:sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.4);">${n}</div>`,iconSize:[20,20],iconAnchor:[10,10]});}
   function iconoMid(){return L.divIcon({className:'',html:`<div style="width:14px;height:14px;background:rgba(255,109,0,0.45);border:2px dashed #fff;border-radius:50%;"></div>`,iconSize:[14,14],iconAnchor:[7,7]});}
@@ -263,7 +289,18 @@ function crearMapaCampo(containerId){
         m.on('dragend',()=>redibujar());
       });
     }
-    if(modoMapa==='ruta'&&rutaPts.length)L.polyline(rutaPts.map(p=>[p.lat,p.lng]),{color:'#1A73E8',weight:4}).addTo(capaRuta);
+    if(modoMapa==='ruta'&&rutaPts.length){
+      // dibujar segmento por segmento: normal (azul sólido) o interpolado (rojo punteado)
+      for(let i=1;i<rutaPts.length;i++){
+        const a=rutaPts[i-1], b=rutaPts[i];
+        if(b.interp){
+          // tramo aproximado (la app estuvo en segundo plano): rojo punteado
+          L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:'#D93025',weight:3,dashArray:'6,6',opacity:0.9}).addTo(capaRuta);
+        }else{
+          L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:'#1A73E8',weight:4}).addTo(capaRuta);
+        }
+      }
+    }
     if(modoMapa==='punto')sueltos.forEach((p,i)=>{const m=L.marker([p.lat,p.lng],{draggable:true}).bindTooltip(p.nombre,{permanent:true,direction:'top'}).addTo(capaMarcadores);m.on('dragend',ev=>{const l=ev.target.getLatLng();sueltos[i].lat=l.lat;sueltos[i].lng=l.lng;});});
   }
   function soloPoly(){
@@ -290,7 +327,16 @@ function crearMapaCampo(containerId){
       if(!marcadorPos){marcadorPos=L.circleMarker([lat,lng],{radius:7,color:'#fff',weight:2,fillColor:'#1A73E8',fillOpacity:1}).addTo(map);accCircle=L.circle([lat,lng],{radius:acc,color:'#1A73E8',weight:1,fillOpacity:0.08}).addTo(map);if(!referencias.length&&!puntos.length)map.setView([lat,lng],17);}
       else{marcadorPos.setLatLng([lat,lng]);accCircle.setLatLng([lat,lng]).setRadius(acc);}
     }
-    if(modoMapa==='ruta'&&tracking){const last=rutaPts[rutaPts.length-1];if(!last||distancia(last,ultimaPos)>2){rutaPts.push({lat,lng});redibujar();}}
+    if(modoMapa==='ruta'&&tracking){
+      const last=rutaPts[rutaPts.length-1];
+      if(!last||distancia(last,ultimaPos)>2){
+        // si venimos de segundo plano, el nuevo punto abre un tramo interpolado
+        const punto={lat,lng};
+        if(huboSalto){ punto.interp=true; huboSalto=false; }
+        rutaPts.push(punto);
+        redibujar();
+      }
+    }
     if(modoMapa==='campo'&&autoCampo){const last=puntos[puntos.length-1];if(!last||distancia(last,ultimaPos)>4){puntos.push({lat,lng,acc});redibujar();}}
   }
   function onErr(e){if(e.code===1)setG('bad','Permiso denegado');else if(e.code===2)setG('bad','Sin señal');else setG('warn','Buscando...');}
@@ -300,7 +346,7 @@ function crearMapaCampo(containerId){
     if(wired)return;wired=true;
     document.getElementById(id+'_seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;modoMapa=b.dataset.m;tracking=false;autoCampo=false;document.querySelectorAll('#'+id+'_seg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');document.getElementById(id+'_bauto').classList.remove('tracking');redibujar();});
     document.getElementById(id+'_bgps').addEventListener('click',()=>{
-      if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;tracking=false;autoCampo=false;document.getElementById(id+'_bgps').textContent='▶ GPS';setG('','GPS');document.getElementById(id+'_bauto').classList.remove('tracking');return;}
+      if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;tracking=false;autoCampo=false;document.getElementById(id+'_bgps').textContent='▶ GPS';setG('','GPS');document.getElementById(id+'_bauto').classList.remove('tracking');liberarWakeLock();return;}
       iniciarGPS();
     });
     document.getElementById(id+'_bmarcar').addEventListener('click',()=>{
@@ -432,14 +478,17 @@ function crearMapaCampo(containerId){
       const info=(g.nombre||'Avalúo')+(g.municipio?(' · '+g.municipio):'')+(g.fecha?(' · '+g.fecha):'');
       if(g.puntos && g.puntos.length>=3){
         const latlngs=g.puntos.map(p=>[p.lat,p.lng]);
-        L.polygon(latlngs,{pane:'paneHist',color:'#e8eaed',weight:2.5,opacity:0.95,fillColor:'#9aa0a6',fillOpacity:0.18,dashArray:'5,4',interactive:true}).bindPopup('📐 '+info).addTo(capaHist);
+        // halo blanco (debajo) + borde morado oscuro (encima) = resalta en toda capa
+        L.polygon(latlngs,{pane:'paneHist',color:'#ffffff',weight:5,opacity:0.55,fill:false,interactive:false}).addTo(capaHist);
+        L.polygon(latlngs,{pane:'paneHist',color:'#6A1B9A',weight:2.5,opacity:1,fillColor:'#8E24AA',fillOpacity:0.15,interactive:true}).bindPopup('📐 '+info).addTo(capaHist);
       }
       if(g.ruta && g.ruta.length>=2){
         const latlngs=g.ruta.map(p=>[p.lat,p.lng]);
-        L.polyline(latlngs,{pane:'paneHist',color:'#e8eaed',weight:2.5,opacity:0.85,dashArray:'3,5',interactive:false}).addTo(capaHist);
+        L.polyline(latlngs,{pane:'paneHist',color:'#ffffff',weight:5,opacity:0.55,interactive:false}).addTo(capaHist);
+        L.polyline(latlngs,{pane:'paneHist',color:'#6A1B9A',weight:2.5,opacity:1,dashArray:'4,4',interactive:false}).addTo(capaHist);
       }
       (g.sueltos||[]).forEach(p=>{
-        L.circleMarker([p.lat,p.lng],{pane:'paneHist',radius:5,color:'#ffffff',weight:1.5,fillColor:'#9aa0a6',fillOpacity:0.9,interactive:true}).bindPopup('📍 '+(p.nombre||'Punto')+'\n'+info).addTo(capaHist);
+        L.circleMarker([p.lat,p.lng],{pane:'paneHist',radius:5,color:'#ffffff',weight:2,fillColor:'#6A1B9A',fillOpacity:1,interactive:true}).bindPopup('📍 '+(p.nombre||'Punto')+'\n'+info).addTo(capaHist);
       });
     });
     capaHist.addTo(map);
@@ -635,7 +684,7 @@ function crearMapaCampo(containerId){
     setData:(d)=>{
       if(!d)return;
       puntos=(d.puntos||[]).map(p=>({lat:p.lat,lng:p.lng,acc:p.acc||null}));
-      rutaPts=(d.ruta||[]).map(p=>({lat:p.lat,lng:p.lng}));
+      rutaPts=(d.ruta||[]).map(p=>({lat:p.lat,lng:p.lng,interp:p.interp||false}));
       sueltos=(d.sueltos||[]).map(p=>({lat:p.lat,lng:p.lng,acc:p.acc||null,nombre:p.nombre||'Punto'}));
       referencias=(d.referencias||[]).map(r=>({nombre:r.nombre||'IGAC',anillos:(r.anillos||[]).map(a=>a.map(p=>({lat:p.lat,lng:p.lng})))}));
       elevacion=d.elevacion||null;
