@@ -665,6 +665,23 @@ function crearMapaCampo(containerId){
     sueltos.forEach(p=>{pm+=`<Placemark><name>${p.nombre}</name><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`;});
     // capas de referencia IGAC
     referencias.forEach(ref=>{ref.anillos.forEach((anillo,i)=>{const c=anillo.concat([anillo[0]]).map(p=>p.lng+','+p.lat+',0').join(' ');pm+=`<Placemark><name>${ref.nombre}${ref.anillos.length>1?(' ('+(i+1)+')'):''}</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${c}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;});});
+    // Cuadro de medidas (ficha en el centro del predio)
+    if(puntos.length>=3){
+      let clat=0,clng=0; puntos.forEach(p=>{clat+=p.lat;clng+=p.lng;});
+      clat/=puntos.length; clng/=puntos.length;
+      const areaM=Math.round(area(puntos)), per=Math.round(perimetro(puntos,true));
+      let filas='';
+      filas+=`<tr><td><b>Área</b></td><td>${fmtArea(areaM)} (${areaM.toLocaleString('es')} m²)</td></tr>`;
+      filas+=`<tr><td><b>Perímetro</b></td><td>${per.toLocaleString('es')} m</td></tr>`;
+      if(elevacion && elevacion.pendiente_calc){
+        filas+=`<tr><td><b>Altura mín</b></td><td>${elevacion.min} m s.n.m.</td></tr>`;
+        filas+=`<tr><td><b>Altura máx</b></td><td>${elevacion.max} m s.n.m.</td></tr>`;
+        filas+=`<tr><td><b>Altura prom</b></td><td>${elevacion.prom} m s.n.m.</td></tr>`;
+        filas+=`<tr><td><b>Pendiente</b></td><td>${elevacion.pendiente_pct}% (${elevacion.pendiente_grados}°)</td></tr>`;
+      }
+      const desc=`<![CDATA[<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;font-size:13px;">${filas}</table><br><small>Alturas de referencia (Copernicus DEM ~90 m). No es nivelación topográfica.</small>]]>`;
+      pm+=`<Placemark><name>📐 Medidas del predio</name><description>${desc}</description><Point><coordinates>${clng},${clat},0</coordinates></Point></Placemark>`;
+    }
     if(!pm)return '';
     return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Mapeo avalúo</name>${pm}</Document></kml>`;
   }

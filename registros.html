@@ -8,6 +8,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
+<script src="tema.js"></script>
 <title>Mis registros</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -198,8 +199,30 @@ function generarKmlCompleto(mc){
       pm+=`<Placemark><name>${nom}</name><Style><LineStyle><color>ffff0000</color><width>2</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style><Polygon><outerBoundaryIs><LinearRing><coordinates>${c}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
     });
   });
+  // Cuadro de medidas (ficha que se abre en Google Earth al tocar el marcador)
+  if(pts.length>=3){
+    const centro=centroide(pts);
+    let filas='';
+    filas+=`<tr><td><b>Área</b></td><td>${fmtArea(mc.area_m2||0)} (${Math.round(mc.area_m2||0).toLocaleString('es')} m²)</td></tr>`;
+    filas+=`<tr><td><b>Perímetro</b></td><td>${Math.round(mc.perimetro_m||0).toLocaleString('es')} m</td></tr>`;
+    const el=mc.elevacion;
+    if(el && el.pendiente_calc){
+      filas+=`<tr><td><b>Altura mín</b></td><td>${el.min} m s.n.m.</td></tr>`;
+      filas+=`<tr><td><b>Altura máx</b></td><td>${el.max} m s.n.m.</td></tr>`;
+      filas+=`<tr><td><b>Altura prom</b></td><td>${el.prom} m s.n.m.</td></tr>`;
+      filas+=`<tr><td><b>Pendiente</b></td><td>${el.pendiente_pct}% (${el.pendiente_grados}°)</td></tr>`;
+    }
+    const desc=`<![CDATA[<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;font-size:13px;">${filas}</table><br><small>Alturas de referencia (Copernicus DEM ~90 m). No es nivelación topográfica.</small>]]>`;
+    pm+=`<Placemark><name>📐 Medidas del predio</name><description>${desc}</description><Style><IconStyle><color>ff3ea832</color><scale>1.2</scale></IconStyle></Style><Point><coordinates>${centro.lng},${centro.lat},0</coordinates></Point></Placemark>`;
+  }
   if(!pm) return '';
   return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Mapeo avalúo</name>${pm}</Document></kml>`;
+}
+// centro aproximado de un polígono (para ubicar el cuadro de medidas)
+function centroide(pts){
+  let lat=0,lng=0;
+  pts.forEach(p=>{lat+=p.lat;lng+=p.lng;});
+  return {lat:lat/pts.length, lng:lng/pts.length};
 }
 async function borrar(id){
   if(!confirm('¿Eliminar este registro de forma permanente?\n\nEsto borra solo la copia local; el JSON ya guardado en OneDrive no se elimina.'))return;
@@ -209,6 +232,10 @@ async function borrar(id){
 
 // ── Importar uno o varios Db.json (desde OneDrive/FolderSync o cualquier carpeta) ──
 document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('fileImport').click());
+// Si venimos del asistente de nuevo dispositivo, abrir el selector de una vez
+if(new URLSearchParams(location.search).get('importar')==='1'){
+  setTimeout(()=>{ document.getElementById('fileImport').click(); }, 600);
+}
 document.getElementById('btnFolderRd').addEventListener('click',recargarCarpeta);
 document.getElementById('btnMaestro').addEventListener('click',async()=>{
   const btn=document.getElementById('btnMaestro');

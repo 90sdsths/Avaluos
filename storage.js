@@ -296,6 +296,32 @@
       opts = opts || {};
       registro.id = registro.id || ('avaluo_'+Date.now());
       registro.fecha_guardado = new Date().toLocaleString('es-CO');
+
+      // GARANTIZAR nombre_base ÚNICO entre avalúos DISTINTOS (ids distintos).
+      // Caso: dos visitas el mismo día, misma ciudad, misma persona → mismo
+      // nombre_base → antes se sobre-escribían. Ahora el segundo recibe _2.
+      // Reguardar el MISMO avalúo (mismo id) conserva su nombre (regla de edición).
+      try{
+        if(registro.nombre_base){
+          const todos=await idbAll(STORE_REG);
+          const raiz=registro.nombre_base.replace(/_(\d+)$/,'');
+          let candidato=registro.nombre_base;
+          // si este avalúo ya existía con un nombre (posiblemente con sufijo), conservarlo
+          const propio=todos.find(r=>r.id===registro.id);
+          if(propio && propio.nombre_base && propio.nombre_base.replace(/_(\d+)$/,'')===raiz){
+            candidato=propio.nombre_base;
+          }
+          let n=2;
+          while(todos.some(r=>r.id!==registro.id && (r.nombre_base||'')===candidato)){
+            candidato=raiz+'_'+n; n++;
+          }
+          if(candidato!==registro.nombre_base){
+            registro.nombre_base=candidato;
+            registro.nombre_archivo=candidato+'_Db.json';
+          }
+        }
+      }catch(e){}
+
       // copia local para edición
       await idbPut(STORE_REG, registro);
       // copia de respaldo en localStorage (para recuperación rápida)

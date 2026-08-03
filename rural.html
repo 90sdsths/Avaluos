@@ -9,6 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
+<script src="tema.js"></script>
 <title>Avalúo Rural</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -418,7 +419,7 @@ async function guardar(){
   const odEl=document.getElementById('od_status');odEl.classList.add('show');
   odEl.textContent='💾 Guardando...';
   let res;
-  try{ res=await AvaluosStorage.guardar(reg); }catch(e){ res={ok:false}; }
+  try{ res=await AvaluosStorage.guardar(reg); window._idAsignado=reg.id; }catch(e){ res={ok:false}; }
   if(res && res.metodo==='carpeta') odEl.textContent='✅ Guardado directo en la carpeta de OneDrive';
   else if(res && res.metodo==='descarga') odEl.textContent='⬇️ Archivo descargado — compártelo a OneDrive desde el celular';
   else odEl.textContent='⚠️ No se pudo guardar el archivo';
@@ -502,6 +503,7 @@ function construirRegistro(){
   const params=new URLSearchParams(location.search);
   const editId=params.get('edit');
   if(editId) reg.id=editId;
+  else if(window._idAsignado) reg.id=window._idAsignado;
   return reg;
 }
 
@@ -525,7 +527,7 @@ async function autoguardar(){
   if(yaAutoguardado) return;
   if(!camposMinimos()) return;
   yaAutoguardado=true;
-  try{ const reg=construirRegistro(); reg.autoguardado=true; await AvaluosStorage.guardar(reg,{silencioso:true}); }catch(e){}
+  try{ const reg=construirRegistro(); reg.autoguardado=true; await AvaluosStorage.guardar(reg,{silencioso:true}); window._idAsignado=reg.id; }catch(e){}
 }
 window.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') autoguardar(); });
 window.addEventListener('pagehide', autoguardar);

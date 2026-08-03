@@ -1,7 +1,7 @@
 // Service Worker — permite usar la app SIN INTERNET en campo.
 // Guarda en caché los archivos de la app y los reutiliza cuando no hay conexión.
 
-const CACHE = 'avaluos-v26';
+const CACHE = 'avaluos-v28';
 
 // Archivos propios de la app (rutas relativas al directorio del SW)
 const APP_FILES = [
@@ -17,6 +17,7 @@ const APP_FILES = [
   './mapacampo.js',
   './anotaciones.js',
   './manifest.json',
+  './tema.js',
   './icon-192.png',
   './icon-512.png',
   './favicon-32.png'

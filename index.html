@@ -11,6 +11,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script src="tema.js"></script>
 <title>Avalúos — Sistema de Registro</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -58,6 +59,14 @@
 </header>
 
 <div class="container">
+
+  <!-- ASISTENTE DE NUEVO DISPOSITIVO (aparece solo si no hay registros) -->
+  <div id="asistente" style="display:none;background:var(--blue-light);border:1.5px solid var(--blue);border-radius:12px;padding:16px;margin-bottom:18px;">
+    <div style="font-weight:700;font-size:15px;margin-bottom:8px;">👋 ¿Dispositivo nuevo? Configuremos la app</div>
+    <div style="font-size:13px;color:var(--gray);line-height:1.5;margin-bottom:12px;" id="asist_texto"></div>
+    <div id="asist_pasos"></div>
+  </div>
+
   <div class="install-banner" id="installBanner">
     <strong>💡 Instalar como app</strong>
     Toca el botón para agregar a tu pantalla de inicio.
@@ -145,5 +154,61 @@ if("serviceWorker" in navigator){
 }
 </script>
     <div id="offline-listo" style="display:none;margin:12px auto;max-width:560px;padding:10px 14px;background:#E6F4EA;border:1.5px solid #34A853;border-radius:10px;color:#1E7E34;font-size:13px;text-align:center;">✅ App lista para usar sin internet</div>
+<script>
+// ===== ASISTENTE DE NUEVO DISPOSITIVO =====
+(async function(){
+  try{
+    const regs=await AvaluosStorage.listarTodos();
+    if(regs && regs.length) return; // ya hay datos: no molestar
+  }catch(e){}
+  const box=document.getElementById('asistente');
+  const txt=document.getElementById('asist_texto');
+  const pasos=document.getElementById('asist_pasos');
+  if(!box) return;
+  box.style.display='block';
+  const esPC = AvaluosStorage.soportaCarpeta;
+  const bstyle='width:100%;padding:12px;border:none;border-radius:10px;background:var(--blue);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;';
+
+  if(esPC){
+    txt.innerHTML='Este computador puede conectarse directo a tu carpeta de OneDrive. Elige la carpeta donde guardas los avalúos (ej. <b>OneDrive → 001 TRABAJO → 01 AVALÚOS → Automatización</b>) y la app cargará todos tus registros automáticamente.';
+    const b=document.createElement('button');
+    b.style.cssText=bstyle;
+    b.textContent='📁 Conectar carpeta de OneDrive y cargar mis registros';
+    b.onclick=async()=>{
+      b.textContent='⏳ Conectando...';
+      try{
+        const ok=await AvaluosStorage.elegirCarpeta();
+        if(!ok){ b.textContent='📁 Conectar carpeta de OneDrive y cargar mis registros'; return; }
+        b.textContent='⏳ Leyendo registros de la carpeta...';
+        const lista=await AvaluosStorage.listarTodos();
+        const n=(lista||[]).length;
+        try{ await AvaluosStorage.reconstruirMaestro(); }catch(e){}
+        txt.innerHTML='✅ <b>Listo.</b> Se cargaron <b>'+n+'</b> registro(s) desde tu carpeta. Ya puedes trabajar normalmente; todo lo que guardes irá a esa carpeta.';
+        pasos.innerHTML='';
+        setTimeout(()=>{ box.style.display='none'; location.reload(); }, 2500);
+      }catch(e){ b.textContent='⚠️ No se pudo. Intenta de nuevo'; }
+    };
+    pasos.appendChild(b);
+  } else {
+    txt.innerHTML='En el celular, el navegador no permite conectarse directo a OneDrive (limitación de Android). Sigue esta guía una sola vez para traer tus registros:';
+    pasos.innerHTML=
+      '<ol style="font-size:13px;line-height:1.7;color:var(--text);padding-left:18px;margin-bottom:12px;">'+
+      '<li>Abre la app de <b>OneDrive</b> y ve a tu carpeta de avalúos (ej. <b>001 TRABAJO → 01 AVALÚOS → Automatización</b>).</li>'+
+      '<li>Mantén pulsado un archivo <b>_Db.json</b> y selecciona todos los que necesites.</li>'+
+      '<li>Toca <b>Descargar</b> (quedarán en la carpeta <b>Descargas</b> del celular).</li>'+
+      '<li>Vuelve aquí y pulsa el botón de abajo; selecciona <b>todos</b> los archivos descargados a la vez.</li>'+
+      '</ol>';
+    const b=document.createElement('button');
+    b.style.cssText=bstyle;
+    b.textContent='📥 Importar mis registros descargados';
+    b.onclick=()=>{ location.href='registros.html?importar=1'; };
+    pasos.appendChild(b);
+    const nota=document.createElement('div');
+    nota.style.cssText='font-size:12px;color:var(--gray);line-height:1.5;';
+    nota.innerHTML='💡 Consejo: configura <b>FolderSync</b> para que la carpeta local del celular y OneDrive se sincronicen solas, como en tu otro dispositivo.';
+    pasos.appendChild(nota);
+  }
+})();
+</script>
 </body>
 </html>
