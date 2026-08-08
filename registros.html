@@ -57,6 +57,7 @@
   <button class="btn-import" id="btnImport">📥 Importar registro (Db.json) desde OneDrive/archivos</button>
   <button class="btn-folder-rd" id="btnFolderRd">🔄 Leer carpeta de OneDrive (computador)</button>
   <button class="btn-folder-rd" id="btnMaestro" style="margin-top:6px">🗺️ Generar mapa maestro (mis trabajos en el mapa)</button>
+  <button class="btn-folder-rd" id="btnEco" style="margin-top:6px">🔗 Exportar ecosistema (QGIS + Excel/DBeaver + fotos)</button>
   <div class="aviso-carpeta" id="avisoCarpeta" style="display:none">💡 En el computador puedes elegir la carpeta de OneDrive para que se listen automáticamente todos los registros guardados ahí.</div>
   <input type="file" id="fileImport" accept=".json,application/json" multiple style="display:none">
   <div class="filtros">
@@ -273,6 +274,77 @@ document.getElementById('fileImport').addEventListener('change',async e=>{
   if(err)msg.push(err+' con error');
   alert('Importación: '+(msg.join(', ')||'sin cambios')+'.');
   cargar();
+});
+
+// ===== EXPORTACIÓN DEL ECOSISTEMA (QGIS + Excel/DBeaver + fotos) =====
+// Todo se une por el 'id' del avalúo (clave que relaciona las 3 plataformas).
+function csvEscapar(v){
+  if(v==null) return '';
+  const s=String(v);
+  return /[",\n;]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function exportarEcosistema(registros){
+  const colsAv=['id','tipo','municipio','vereda','contratante','direccion','fecha_visita','area_m2','area_ha','perimetro_m','alt_min','alt_max','alt_prom','pendiente_pct','pendiente_grados','finalidad','matricula','codigo_catastral','nombre_base'];
+  let csvAv=colsAv.join(';')+'\n';
+  const colsFo=['avaluo_id','nombre','fecha','lat','lng','alt','origen','municipio','contratante'];
+  let csvFo=colsFo.join(';')+'\n';
+  const features=[];
+  registros.forEach(r=>{
+    const mc=r.mapa_campo||{};
+    const el=mc.elevacion||{};
+    const filaAv=[r.id,r.tipo||'',r.municipio||'',r.vereda||'',r.contratante||'',r.direccion||'',r.fecha_visita_texto||'',
+      mc.area_m2||'',mc.area_ha||'',mc.perimetro_m||'',
+      el.pendiente_calc?el.min:'',el.pendiente_calc?el.max:'',el.pendiente_calc?el.prom:'',el.pendiente_calc?el.pendiente_pct:'',el.pendiente_calc?el.pendiente_grados:'',
+      r.finalidad||'',r.matricula||'',r.codigo_catastral||'',r.nombre_base||''];
+    csvAv+=filaAv.map(csvEscapar).join(';')+'\n';
+    (r.fotos||[]).forEach(f=>{
+      csvFo+=[r.id,f.nombre||'',f.fecha||'',f.lat!=null?f.lat:'',f.lng!=null?f.lng:'',f.alt!=null?f.alt:'',f.origen||'',r.municipio||'',r.contratante||''].map(csvEscapar).join(';')+'\n';
+    });
+    const props={id:r.id,tipo:r.tipo,municipio:r.municipio,contratante:r.contratante,fecha:r.fecha_visita_texto,
+      area_ha:mc.area_ha,perimetro_m:mc.perimetro_m,alt_prom:el.pendiente_calc?el.prom:null,pendiente_pct:el.pendiente_calc?el.pendiente_pct:null};
+    if(mc.puntos&&mc.puntos.length>=3){
+      const ring=mc.puntos.concat([mc.puntos[0]]).map(p=>[p.lng,p.lat]);
+      features.push({type:'Feature',geometry:{type:'Polygon',coordinates:[ring]},properties:{...props,geom:'predio'}});
+    }
+    if(mc.ruta&&mc.ruta.length>=2){
+      features.push({type:'Feature',geometry:{type:'LineString',coordinates:mc.ruta.map(p=>[p.lng,p.lat])},properties:{...props,geom:'ruta'}});
+    }
+    (mc.sueltos||[]).forEach(p=>{
+      features.push({type:'Feature',geometry:{type:'Point',coordinates:[p.lng,p.lat]},properties:{...props,geom:'punto',nombre:p.nombre||'Punto'}});
+    });
+    (r.fotos||[]).forEach(f=>{
+      if(f.lat!=null&&f.lng!=null){
+        features.push({type:'Feature',geometry:{type:'Point',coordinates:[f.lng,f.lat]},properties:{...props,geom:'foto',nombre:f.nombre,fecha:f.fecha}});
+      }
+    });
+  });
+  return { csvAvaluos:csvAv, csvFotos:csvFo, geojson:JSON.stringify({type:'FeatureCollection',features},null,1) };
+}
+async function descargarTexto(nombre,contenido,tipo){
+  const compartido=await AvaluosStorage.compartirArchivo(nombre,contenido);
+  if(!compartido){
+    const blob=new Blob([contenido],{type:tipo||'text/plain'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nombre;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1200);
+  }
+}
+document.getElementById('btnEco').addEventListener('click',async()=>{
+  const btn=document.getElementById('btnEco');
+  btn.textContent='⏳ Generando exportación...';
+  try{
+    const regs=await AvaluosStorage.listarTodos();
+    if(!regs||!regs.length){ btn.textContent='⚠️ No hay registros'; setTimeout(()=>btn.textContent='🔗 Exportar ecosistema (QGIS + Excel/DBeaver + fotos)',2000); return; }
+    const eco=exportarEcosistema(regs);
+    const hoy=new Date().toISOString().slice(0,10);
+    await descargarTexto('avaluos_'+hoy+'.csv', eco.csvAvaluos, 'text/csv');
+    await descargarTexto('avaluos_fotos_'+hoy+'.csv', eco.csvFotos, 'text/csv');
+    await descargarTexto('avaluos_'+hoy+'.geojson', eco.geojson, 'application/geo+json');
+    btn.textContent='✅ 3 archivos generados';
+    setTimeout(()=>btn.textContent='🔗 Exportar ecosistema (QGIS + Excel/DBeaver + fotos)',3000);
+  }catch(e){
+    btn.textContent='⚠️ No se pudo generar';
+    setTimeout(()=>btn.textContent='🔗 Exportar ecosistema (QGIS + Excel/DBeaver + fotos)',3000);
+  }
 });
 
 cargar();

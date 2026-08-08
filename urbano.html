@@ -282,6 +282,14 @@
   </div>
 </div>
 
+<!-- FOTOS -->
+<div class="card">
+  <div class="card-header"><span>📷 Fotos de la visita</span></div>
+  <div class="card-body">
+    <div id="fotos"></div>
+  </div>
+</div>
+
 <!-- ANOTACIONES -->
 <div class="card">
   <div class="card-header"><span>📝 Anotaciones</span></div>
@@ -307,6 +315,7 @@
 <script src="tablas.js"></script>
 <script src="mapacampo.js"></script>
 <script src="anotaciones.js"></script>
+<script src="fotos.js"></script>
 <script src="storage.js"></script>
 <script>
 const SINGLE_CHIPS = ['chips_finalidad','chips_estado','chips_transporte'];
@@ -319,6 +328,7 @@ const secMod = crearSecciones('secContainer', 3, 2);
 // Mapa de campo y anotaciones
 const mapaCampo = crearMapaCampo('mapaCampo');
 const anotaciones = crearAnotaciones('anotaciones');
+const fotosVisita = crearFotos('fotos');
 
 // Cálculo automático de pendiente = total - anticipo
 function calcularPendiente(){
@@ -445,6 +455,7 @@ function construirRegistro(){
     consideraciones:document.getElementById('f_consideraciones').value,
     mapa_campo:mapaCampo?mapaCampo.getData():null,
     anotaciones:anotaciones?anotaciones.getData():[],
+    fotos:fotosVisita?fotosVisita.getData():[],
     impacto_ambiental:'no presenta condiciones que afecten o deterioren el medio ambiente.',
     fecha_guardado:new Date().toLocaleString('es-CO')
   };
@@ -525,6 +536,7 @@ function limpiar(){
   setV('f_servidumbres',d.servidumbres);setV('f_consideraciones',d.consideraciones);
   if(mapaCampo&&mapaCampo.setAvaluoId)mapaCampo.setAvaluoId(d.id);
   if(d.mapa_campo&&mapaCampo)mapaCampo.setData(d.mapa_campo);
+  if(d.fotos&&fotosVisita)fotosVisita.setData(d.fotos);
   // Si quedaron alturas pendientes de calcular (se guardó sin internet), reintentar ahora
   if(mapaCampo && mapaCampo.alturasPendientes && mapaCampo.alturasPendientes() && navigator.onLine){
     setTimeout(()=>{ mapaCampo.calcularAlturas().catch(()=>{}); }, 1500);

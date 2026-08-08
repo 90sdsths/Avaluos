@@ -335,6 +335,14 @@
   </div>
 </div>
 
+<!-- FOTOS -->
+<div class="card">
+  <div class="card-header"><span>📷 Fotos de la visita</span></div>
+  <div class="card-body">
+    <div id="fotos"></div>
+  </div>
+</div>
+
 <!-- ANOTACIONES -->
 <div class="card">
   <div class="card-header"><span>📝 Anotaciones</span></div>
@@ -360,12 +368,14 @@
 <script src="tablas.js"></script>
 <script src="mapacampo.js"></script>
 <script src="anotaciones.js"></script>
+<script src="fotos.js"></script>
 <script src="storage.js"></script>
 <script>
 const SINGLE=['chips_finalidad','chips_estado','chips_cauce_int','chips_cauce_perm','chips_irrigacion','chips_transporte'];
 const editorPlantas = crearEditorPlanos('editorPlantas', '#188038');
 const mapaCampo = crearMapaCampo('mapaCampo');
 const anotaciones = crearAnotaciones('anotaciones');
+const fotosVisita = crearFotos('fotos');
 const depMod = crearDependencias('depContainer', 3);
 const secMod = crearSecciones('secContainer', 3, 2);
 
@@ -496,6 +506,7 @@ function construirRegistro(){
     },
     mapa_campo:mapaCampo?mapaCampo.getData():null,
     anotaciones:anotaciones?anotaciones.getData():[],
+    fotos:fotosVisita?fotosVisita.getData():[],
     fecha_guardado:new Date().toLocaleString('es-CO')
   };
   reg.nombre_archivo=nombreArchivo(reg);
@@ -575,6 +586,7 @@ function limpiar(){
   setV('f_afectaciones',d.afectaciones);setV('f_consideraciones',d.consideraciones);
   if(mapaCampo&&mapaCampo.setAvaluoId)mapaCampo.setAvaluoId(d.id);
   if(d.mapa_campo&&mapaCampo)mapaCampo.setData(d.mapa_campo);
+  if(d.fotos&&fotosVisita)fotosVisita.setData(d.fotos);
   if(mapaCampo && mapaCampo.alturasPendientes && mapaCampo.alturasPendientes() && navigator.onLine){
     setTimeout(()=>{ mapaCampo.calcularAlturas().catch(()=>{}); }, 1500);
   }
