@@ -11,6 +11,26 @@
   }
   html.oscuro body{background:#121417 !important;color:var(--text);}
   html.oscuro .export-area{background:#181B1F !important;}
+  /* Tarjetas del menú con tinte propio por sección */
+  html.oscuro .card-btn{background:#1E2226 !important;border-color:#3C4043 !important;box-shadow:none !important;}
+  html.oscuro a.card-btn[href="urbano.html"]{background:#17233A !important;border-color:#2A4A7F !important;}
+  html.oscuro a.card-btn[href="rural.html"]{background:#14291B !important;border-color:#2A5537 !important;}
+  html.oscuro a.card-btn[href="registros.html"]{background:#231A38 !important;border-color:#4A3576 !important;}
+  html.oscuro .folder-card{background:#2A2410 !important;border-color:#5A4B1E !important;}
+  html.oscuro .card-text span{color:#B8BCC2 !important;}
+  html.oscuro .divider{background:#3C4043 !important;}
+  /* Tarjetas de registro (Mis registros) */
+  html.oscuro .reg{background:#1E2226 !important;border-color:#3C4043 !important;}
+  html.oscuro .reg-actions button{background:#2A2E33 !important;border-color:#3C4043 !important;color:#E8EAED !important;}
+  html.oscuro .filtro{background:#2A2E33 !important;color:#B8BCC2 !important;border-color:#3C4043 !important;}
+  html.oscuro .btn-import{background:#14291B !important;color:#8FD19E !important;}
+  /* Elementos de los formularios en modo oscuro */
+  html.oscuro .card{background:#181B1F !important;border-color:#3C4043 !important;}
+  html.oscuro .card-header{background:#22262B !important;border-color:#3C4043 !important;}
+  html.oscuro .chip{background:#2A2E33 !important;color:#B8BCC2 !important;border-color:#3C4043 !important;}
+  html.oscuro .section-table input, html.oscuro .dep-table input{background:#2A2E33 !important;color:#E8EAED !important;}
+  html.oscuro .btn-new{background:#2A2E33 !important;color:#B8BCC2 !important;border-color:#3C4043 !important;}
+  html.oscuro .progress-fill{background:#8AB4F8 !important;}
   html.oscuro input, html.oscuro select, html.oscuro textarea{
     background:#2A2E33 !important; color:#E8EAED !important; border-color:#3C4043 !important;
   }
