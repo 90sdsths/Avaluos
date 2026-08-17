@@ -152,11 +152,12 @@
     <div class="field"><label>Dirección <span class="req">*</span></label><input type="text" id="f_direccion" placeholder="Ej: Cra 7 No. 47b-45"></div>
     <div class="row2">
       <div class="field">
-        <label>Municipio <span class="req">*</span></label>
-        <select id="f_municipio"><option value="">Seleccionar...</option><option>Almeida</option><option>Aquitania</option><option>Arcabuco</option><option>Belén</option><option>Berbeo</option><option>Betéitiva</option><option>Boavita</option><option>Boyacá</option><option>Briceño</option><option>Buenavista</option><option>Busbanzá</option><option>Caldas</option><option>Campohermoso</option><option>Cerinza</option><option>Chinavita</option><option>Chiquinquirá</option><option>Chíquiza</option><option>Chiscas</option><option>Chita</option><option>Chitaraque</option><option>Chivatá</option><option>Chivor</option><option>Ciénega</option><option>Cómbita</option><option>Coper</option><option>Corrales</option><option>Covarachía</option><option>Cubará</option><option>Cucaita</option><option>Cuítiva</option><option>Duitama</option><option>El Cocuy</option><option>El Espino</option><option>Firavitoba</option><option>Floresta</option><option>Gachantivá</option><option>Gámeza</option><option>Garagoa</option><option>Guacamayas</option><option>Guateque</option><option>Guayatá</option><option>Güicán</option><option>Iza</option><option>Jenesano</option><option>Jericó</option><option>La Capilla</option><option>La Uvita</option><option>La Victoria</option><option>Labranzagrande</option><option>Macanal</option><option>Maripí</option><option>Miraflores</option><option>Mongua</option><option>Monguí</option><option>Moniquirá</option><option>Motavita</option><option>Muzo</option><option>Nobsa</option><option>Nuevo Colón</option><option>Oicatá</option><option>Otanche</option><option>Pachavita</option><option>Páez</option><option>Paipa</option><option>Pajarito</option><option>Panqueba</option><option>Pauna</option><option>Paya</option><option>Paz de Río</option><option>Pesca</option><option>Pisba</option><option>Puerto Boyacá</option><option>Quípama</option><option>Ramiriquí</option><option>Ráquira</option><option>Rondón</option><option>Saboyá</option><option>Sáchica</option><option>Samacá</option><option>San Eduardo</option><option>San José de Pare</option><option>San Luis de Gaceno</option><option>San Mateo</option><option>San Miguel de Sema</option><option>San Pablo de Borbur</option><option>Santa María</option><option>Santa Rosa de Viterbo</option><option>Santa Sofía</option><option>Santana</option><option>Sativanorte</option><option>Sativasur</option><option>Siachoque</option><option>Soatá</option><option>Socha</option><option>Socotá</option><option>Sogamoso</option><option>Somondoco</option><option>Sora</option><option>Soracá</option><option>Sotaquirá</option><option>Susacón</option><option>Sutamarchán</option><option>Sutatenza</option><option>Tasco</option><option>Tenza</option><option>Tibaná</option><option>Tibasosa</option><option>Tinjacá</option><option>Tipacoque</option><option>Toca</option><option>Togüí</option><option>Tópaga</option><option>Tota</option><option>Tunja</option><option>Tununguá</option><option>Turmequé</option><option>Tuta</option><option>Tutazá</option><option>Úmbita</option><option>Ventaquemada</option><option>Villa de Leyva</option><option>Viracachá</option><option>Zetaquira</option><optgroup label="Otro departamento"><option>Bogotá D.C.</option><option>Girón (Santander)</option><option>Susa (Cundinamarca)</option><option>Tibirita (Cundinamarca)</option><option>Otro municipio</option></optgroup></select>
+        <label>Departamento <span class="req">*</span></label>
+        <select id="f_depto"></select>
       </div>
-      <div class="field"><label>Departamento</label>
-        <select id="f_depto"><option value="Boyacá" selected>Boyacá</option><option value="Cundinamarca">Cundinamarca</option><option value="Santander">Santander</option><option value="Otro">Otro</option></select>
+      <div class="field">
+        <label>Municipio <span class="req">*</span></label>
+        <select id="f_municipio"><option value="">Seleccionar...</option></select>
       </div>
     </div>
   </div>
@@ -316,6 +317,7 @@
 <script src="mapacampo.js"></script>
 <script src="anotaciones.js"></script>
 <script src="fotos.js"></script>
+<script src="municipios.js"></script>
 <script src="storage.js"></script>
 <script>
 const SINGLE_CHIPS = ['chips_finalidad','chips_estado','chips_transporte'];
@@ -372,6 +374,42 @@ const provinciaMap = {
   'Chiscas':'Neira','El Cocuy':'Neira','El Espino':'Neira','Güicán':'Neira','La Salina':'Neira','Panqueba':'Neira',
   'Puerto Boyacá':'Manejo especial'
 };
+
+// ===== Departamentos y municipios con código DANE =====
+function poblarDepartamentos(){
+  const selD=document.getElementById('f_depto');
+  if(!selD||typeof MUNICIPIOS_CO==='undefined')return;
+  selD.innerHTML='';
+  MUNICIPIOS_CO.forEach(dep=>{
+    const o=document.createElement('option');
+    o.value=dep.nombre; o.textContent=dep.codigo+' '+dep.nombre;
+    selD.appendChild(o);
+  });
+  // Boyacá por defecto (ya viene primero en los datos)
+  selD.value='Boyaca';
+  poblarMunicipios();
+}
+function poblarMunicipios(preseleccion){
+  const selD=document.getElementById('f_depto');
+  const selM=document.getElementById('f_municipio');
+  if(!selD||!selM||typeof MUNICIPIOS_CO==='undefined')return;
+  const dep=MUNICIPIOS_CO.find(d=>d.nombre===selD.value);
+  selM.innerHTML='<option value="">Seleccionar...</option>';
+  if(!dep)return;
+  dep.municipios.forEach(m=>{
+    const o=document.createElement('option');
+    // valor guardado = "CODIGODANE NOMBRE" (ej. "15087 BELEN")
+    o.value=m.dane+' '+m.nombre; o.textContent=m.dane+' '+m.nombre;
+    selM.appendChild(o);
+  });
+  if(preseleccion) selM.value=preseleccion;
+}
+// al cambiar departamento, recargar municipios
+document.addEventListener('DOMContentLoaded',()=>{
+  const selD=document.getElementById('f_depto');
+  if(selD){ selD.addEventListener('change',()=>poblarMunicipios()); poblarDepartamentos(); }
+});
+
 function toExcelDate(s){if(!s)return'';const d=new Date(s+'T00:00:00');if(isNaN(d))return s;return Math.round((d-new Date(1899,11,30))/86400000);}
 
 const tracked=['f_fecha_visita','f_contratante','f_direccion','f_municipio','f_depto','f_fecha_elab','f_area_lote','f_area_const','f_frente','f_fondo','f_estrato','f_uso_suelo','f_techo','f_muro','f_piso','f_propietario','f_matricula','f_codigo_cat','f_titulo','f_afectaciones','f_estabilidad','f_servidumbres','f_consideraciones','f_vetustez','f_anticipo','f_pendiente'];
@@ -426,7 +464,7 @@ function construirRegistro(){
     plantas:editorPlantas.getData(),
     direccion:document.getElementById('f_direccion').value,
     municipio, departamento:document.getElementById('f_depto').value,
-    provincia:provinciaMap[municipio]||'',
+    provincia:provinciaMap[(municipio||'').replace(/^\d{5}\s+/,'')]||'',
     fecha_elaboracion:toExcelDate(document.getElementById('f_fecha_elab').value),
     area_lote:parseFloat(document.getElementById('f_area_lote').value)||0,
     area_construida:parseFloat(document.getElementById('f_area_const').value)||0,
@@ -526,7 +564,7 @@ function limpiar(){
   const setV=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v;};
   setV('f_fecha_visita',d.fecha_visita_texto);setV('f_contratante',d.contratante);
   setV('f_total',d.total);setV('f_anticipo',d.anticipo);setV('f_pendiente',d.pendiente);
-  setV('f_direccion',d.direccion);setV('f_municipio',d.municipio);setV('f_depto',d.departamento);
+  setV('f_direccion',d.direccion);if(d.departamento){document.getElementById('f_depto').value=d.departamento;poblarMunicipios(d.municipio);}else{setV('f_municipio',d.municipio);}
   setV('f_area_lote',d.area_lote);setV('f_area_const',d.area_construida);
   setV('f_frente',d.frente);setV('f_fondo',d.fondo);setV('f_estrato',d.estrato);
   setV('f_techo',d.techo);setV('f_muro',d.muro);setV('f_piso',d.piso);setV('f_vetustez',d.vetustez);

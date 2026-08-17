@@ -132,11 +132,13 @@
   <div class="card-header"><span>📍 Ubicación</span></div>
   <div class="card-body">
     <div class="row2">
-      <div class="field"><label>Municipio <span class="req">*</span></label>
-        <select id="f_municipio"><option value="">Seleccionar...</option><option>Almeida</option><option>Aquitania</option><option>Arcabuco</option><option>Belén</option><option>Berbeo</option><option>Betéitiva</option><option>Boavita</option><option>Boyacá</option><option>Briceño</option><option>Buenavista</option><option>Busbanzá</option><option>Caldas</option><option>Campohermoso</option><option>Cerinza</option><option>Chinavita</option><option>Chiquinquirá</option><option>Chíquiza</option><option>Chiscas</option><option>Chita</option><option>Chitaraque</option><option>Chivatá</option><option>Chivor</option><option>Ciénega</option><option>Cómbita</option><option>Coper</option><option>Corrales</option><option>Covarachía</option><option>Cubará</option><option>Cucaita</option><option>Cuítiva</option><option>Duitama</option><option>El Cocuy</option><option>El Espino</option><option>Firavitoba</option><option>Floresta</option><option>Gachantivá</option><option>Gámeza</option><option>Garagoa</option><option>Guacamayas</option><option>Guateque</option><option>Guayatá</option><option>Güicán</option><option>Iza</option><option>Jenesano</option><option>Jericó</option><option>La Capilla</option><option>La Uvita</option><option>La Victoria</option><option>Labranzagrande</option><option>Macanal</option><option>Maripí</option><option>Miraflores</option><option>Mongua</option><option>Monguí</option><option>Moniquirá</option><option>Motavita</option><option>Muzo</option><option>Nobsa</option><option>Nuevo Colón</option><option>Oicatá</option><option>Otanche</option><option>Pachavita</option><option>Páez</option><option>Paipa</option><option>Pajarito</option><option>Panqueba</option><option>Pauna</option><option>Paya</option><option>Paz de Río</option><option>Pesca</option><option>Pisba</option><option>Puerto Boyacá</option><option>Quípama</option><option>Ramiriquí</option><option>Ráquira</option><option>Rondón</option><option>Saboyá</option><option>Sáchica</option><option>Samacá</option><option>San Eduardo</option><option>San José de Pare</option><option>San Luis de Gaceno</option><option>San Mateo</option><option>San Miguel de Sema</option><option>San Pablo de Borbur</option><option>Santa María</option><option>Santa Rosa de Viterbo</option><option>Santa Sofía</option><option>Santana</option><option>Sativanorte</option><option>Sativasur</option><option>Siachoque</option><option>Soatá</option><option>Socha</option><option>Socotá</option><option>Sogamoso</option><option>Somondoco</option><option>Sora</option><option>Soracá</option><option>Sotaquirá</option><option>Susacón</option><option>Sutamarchán</option><option>Sutatenza</option><option>Tasco</option><option>Tenza</option><option>Tibaná</option><option>Tibasosa</option><option>Tinjacá</option><option>Tipacoque</option><option>Toca</option><option>Togüí</option><option>Tópaga</option><option>Tota</option><option>Tunja</option><option>Tununguá</option><option>Turmequé</option><option>Tuta</option><option>Tutazá</option><option>Úmbita</option><option>Ventaquemada</option><option>Villa de Leyva</option><option>Viracachá</option><option>Zetaquira</option><optgroup label="Otro departamento"><option>Bogotá D.C.</option><option>Otro municipio</option></optgroup></select>
+      <div class="field">
+        <label>Departamento <span class="req">*</span></label>
+        <select id="f_depto"></select>
       </div>
-      <div class="field"><label>Departamento</label>
-        <select id="f_depto"><option value="Boyacá" selected>Boyacá</option><option value="Cundinamarca">Cundinamarca</option><option value="Santander">Santander</option><option value="Otro">Otro</option></select>
+      <div class="field">
+        <label>Municipio <span class="req">*</span></label>
+        <select id="f_municipio"><option value="">Seleccionar...</option></select>
       </div>
     </div>
     <div class="field"><label>Vereda</label><input type="text" id="f_vereda" placeholder="Nombre de la vereda"></div>
@@ -369,6 +371,7 @@
 <script src="mapacampo.js"></script>
 <script src="anotaciones.js"></script>
 <script src="fotos.js"></script>
+<script src="municipios.js"></script>
 <script src="storage.js"></script>
 <script>
 const SINGLE=['chips_finalidad','chips_estado','chips_cauce_int','chips_cauce_perm','chips_irrigacion','chips_transporte'];
@@ -403,6 +406,42 @@ function getServicios(){const p=getChips('chips_servicios').split(', ').filter(B
 function toExcelDate(s){if(!s)return'';const d=new Date(s+'T00:00:00');if(isNaN(d))return s;return Math.round((d-new Date(1899,11,30))/86400000);}
 
 const provinciaMap={'Tunja':'Centro','Cómbita':'Centro','Cucaita':'Centro','Chivatá':'Centro','Motavita':'Centro','Oicatá':'Centro','Siachoque':'Centro','Samacá':'Centro','Sora':'Centro','Soracá':'Centro','Toca':'Centro','Tuta':'Centro','Ventaquemada':'Centro','Duitama':'Tundama','Paipa':'Tundama','Belén':'Tundama','Busbanzá':'Tundama','Cerinza':'Tundama','Corrales':'Tundama','Floresta':'Tundama','Santa Rosa de Viterbo':'Tundama','Tutazá':'Tundama','Sogamoso':'Sugamuxi','Aquitania':'Sugamuxi','Cuítiva':'Sugamuxi','Firavitoba':'Sugamuxi','Gámeza':'Sugamuxi','Iza':'Sugamuxi','Mongua':'Sugamuxi','Monguí':'Sugamuxi','Nobsa':'Sugamuxi','Pesca':'Sugamuxi','Tibasosa':'Sugamuxi','Tópaga':'Sugamuxi','Tota':'Sugamuxi','Chiquinquirá':'Occidente','Pauna':'Occidente','Muzo':'Occidente','Villa de Leyva':'Ricaurte','Ramiriquí':'Márquez','Boyacá':'Márquez','Jenesano':'Márquez','Guateque':'Oriente','Miraflores':'Lengupá','Socha':'Valderrama','Puerto Boyacá':'Manejo especial'};
+
+// ===== Departamentos y municipios con código DANE =====
+function poblarDepartamentos(){
+  const selD=document.getElementById('f_depto');
+  if(!selD||typeof MUNICIPIOS_CO==='undefined')return;
+  selD.innerHTML='';
+  MUNICIPIOS_CO.forEach(dep=>{
+    const o=document.createElement('option');
+    o.value=dep.nombre; o.textContent=dep.codigo+' '+dep.nombre;
+    selD.appendChild(o);
+  });
+  // Boyacá por defecto (ya viene primero en los datos)
+  selD.value='Boyaca';
+  poblarMunicipios();
+}
+function poblarMunicipios(preseleccion){
+  const selD=document.getElementById('f_depto');
+  const selM=document.getElementById('f_municipio');
+  if(!selD||!selM||typeof MUNICIPIOS_CO==='undefined')return;
+  const dep=MUNICIPIOS_CO.find(d=>d.nombre===selD.value);
+  selM.innerHTML='<option value="">Seleccionar...</option>';
+  if(!dep)return;
+  dep.municipios.forEach(m=>{
+    const o=document.createElement('option');
+    // valor guardado = "CODIGODANE NOMBRE" (ej. "15087 BELEN")
+    o.value=m.dane+' '+m.nombre; o.textContent=m.dane+' '+m.nombre;
+    selM.appendChild(o);
+  });
+  if(preseleccion) selM.value=preseleccion;
+}
+// al cambiar departamento, recargar municipios
+document.addEventListener('DOMContentLoaded',()=>{
+  const selD=document.getElementById('f_depto');
+  if(selD){ selD.addEventListener('change',()=>poblarMunicipios()); poblarDepartamentos(); }
+});
+
 
 const tracked=['f_fecha_visita','f_contratante','f_municipio','f_vereda','f_area_const','f_techo','f_muro','f_piso','f_propietario','f_matricula','f_uso_suelo'];
 function updateProgress(){
@@ -451,7 +490,7 @@ function construirRegistro(){
     anticipo:parseFloat(document.getElementById('f_anticipo').value)||0,
     pendiente:parseFloat(document.getElementById('f_pendiente').value)||0,
     municipio,departamento:document.getElementById('f_depto').value,
-    provincia:provinciaMap[municipio]||'',
+    provincia:provinciaMap[(municipio||'').replace(/^\d{5}\s+/,'')]||'',
     vereda:document.getElementById('f_vereda').value,
     descripcion_acceso:document.getElementById('f_descripcion_acceso').value,
     fecha_entrega:toExcelDate(document.getElementById('f_fecha_entrega').value),
@@ -569,7 +608,7 @@ function limpiar(){
   const setV=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v;};
   setV('f_fecha_visita',d.fecha_visita_texto);setV('f_contratante',d.contratante);
   setV('f_total',d.total);setV('f_anticipo',d.anticipo);setV('f_pendiente',d.pendiente);
-  setV('f_municipio',d.municipio);setV('f_depto',d.departamento);setV('f_vereda',d.vereda);
+  if(d.departamento){document.getElementById('f_depto').value=d.departamento;poblarMunicipios(d.municipio);}else{setV('f_municipio',d.municipio);}setV('f_vereda',d.vereda);
   setV('f_descripcion_acceso',d.descripcion_acceso);
   setV('env_vias_acceso',d.vias_acceso);setV('env_vias_internas',d.vias_internas);
   setV('env_servidumbres',d.servidumbres);setV('env_erosion',d.erosion);setV('env_topografia',d.topografia);

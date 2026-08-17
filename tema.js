@@ -29,6 +29,17 @@
   html.oscuro .card-header{background:#22262B !important;border-color:#3C4043 !important;}
   html.oscuro .chip{background:#2A2E33 !important;color:#B8BCC2 !important;border-color:#3C4043 !important;}
   html.oscuro .section-table input, html.oscuro .dep-table input{background:#2A2E33 !important;color:#E8EAED !important;}
+  /* Tablas de entorno y secciones rurales */
+  html.oscuro .env-table input, html.oscuro .env-table select, html.oscuro .env-table textarea{background:#2A2E33 !important;color:#E8EAED !important;}
+  html.oscuro .env-table tr:nth-child(even) td{background:#202429 !important;}
+  html.oscuro .env-table td, html.oscuro .env-table th{border-color:#3C4043 !important;}
+  html.oscuro .sec-table input{background:#2A2E33 !important;color:#E8EAED !important;}
+  html.oscuro .sec-table td, html.oscuro .sec-table th{border-color:#3C4043 !important;}
+  /* Anotaciones */
+  html.oscuro .anot{background:#22262B !important;border-color:#3C4043 !important;}
+  html.oscuro .anot input, html.oscuro .anot textarea{background:#2A2E33 !important;color:#E8EAED !important;}
+  /* Campos readonly con fondo fijo */
+  html.oscuro input[readonly]{background:#202429 !important;}
   html.oscuro .btn-new{background:#2A2E33 !important;color:#B8BCC2 !important;border-color:#3C4043 !important;}
   html.oscuro .progress-fill{background:#8AB4F8 !important;}
   html.oscuro input, html.oscuro select, html.oscuro textarea{
