@@ -408,13 +408,24 @@ function toExcelDate(s){if(!s)return'';const d=new Date(s+'T00:00:00');if(isNaN(
 const provinciaMap={'Tunja':'Centro','Cómbita':'Centro','Cucaita':'Centro','Chivatá':'Centro','Motavita':'Centro','Oicatá':'Centro','Siachoque':'Centro','Samacá':'Centro','Sora':'Centro','Soracá':'Centro','Toca':'Centro','Tuta':'Centro','Ventaquemada':'Centro','Duitama':'Tundama','Paipa':'Tundama','Belén':'Tundama','Busbanzá':'Tundama','Cerinza':'Tundama','Corrales':'Tundama','Floresta':'Tundama','Santa Rosa de Viterbo':'Tundama','Tutazá':'Tundama','Sogamoso':'Sugamuxi','Aquitania':'Sugamuxi','Cuítiva':'Sugamuxi','Firavitoba':'Sugamuxi','Gámeza':'Sugamuxi','Iza':'Sugamuxi','Mongua':'Sugamuxi','Monguí':'Sugamuxi','Nobsa':'Sugamuxi','Pesca':'Sugamuxi','Tibasosa':'Sugamuxi','Tópaga':'Sugamuxi','Tota':'Sugamuxi','Chiquinquirá':'Occidente','Pauna':'Occidente','Muzo':'Occidente','Villa de Leyva':'Ricaurte','Ramiriquí':'Márquez','Boyacá':'Márquez','Jenesano':'Márquez','Guateque':'Oriente','Miraflores':'Lengupá','Socha':'Valderrama','Puerto Boyacá':'Manejo especial'};
 
 // ===== Departamentos y municipios con código DANE =====
+
+// Busca la provincia ignorando código DANE y tildes (solo aplica a Boyacá)
+function buscarProvincia(municipio){
+  if(!municipio) return '';
+  const sinDane=municipio.replace(/^\d{5}\s+/,'');
+  const norm=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const objetivo=norm(sinDane);
+  for(const k in provinciaMap){ if(norm(k)===objetivo) return provinciaMap[k]; }
+  return '';
+}
+
 function poblarDepartamentos(){
   const selD=document.getElementById('f_depto');
   if(!selD||typeof MUNICIPIOS_CO==='undefined')return;
   selD.innerHTML='';
   MUNICIPIOS_CO.forEach(dep=>{
     const o=document.createElement('option');
-    o.value=dep.nombre; o.textContent=dep.codigo+' '+dep.nombre;
+    o.value=dep.nombre; o.textContent=dep.codigo+' '+(dep.display||dep.nombre);
     selD.appendChild(o);
   });
   // Boyacá por defecto (ya viene primero en los datos)
@@ -431,10 +442,22 @@ function poblarMunicipios(preseleccion){
   dep.municipios.forEach(m=>{
     const o=document.createElement('option');
     // valor guardado = "CODIGODANE NOMBRE" (ej. "15087 BELEN")
-    o.value=m.dane+' '+m.nombre; o.textContent=m.dane+' '+m.nombre;
+    o.value=m.dane+' '+(m.display||m.nombre); o.textContent=m.dane+' '+(m.display||m.nombre);
     selM.appendChild(o);
   });
-  if(preseleccion) selM.value=preseleccion;
+  if(preseleccion){
+    // intentar match exacto; si no, tolerante (sin tildes, ignorando código DANE viejo/nuevo)
+    selM.value=preseleccion;
+    if(selM.value!==preseleccion){
+      const norm=s=>(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/^\d{5}\s+/,'').toLowerCase().trim();
+      const obj=norm(preseleccion);
+      const op=Array.from(selM.options).find(o=>norm(o.value)===obj);
+      if(op) selM.value=op.value;
+      else { // no está en la lista: agregar el valor viejo tal cual para no perderlo
+        const o=document.createElement('option'); o.value=preseleccion; o.textContent=preseleccion; selM.appendChild(o); selM.value=preseleccion;
+      }
+    }
+  }
 }
 // al cambiar departamento, recargar municipios
 document.addEventListener('DOMContentLoaded',()=>{
@@ -490,7 +513,7 @@ function construirRegistro(){
     anticipo:parseFloat(document.getElementById('f_anticipo').value)||0,
     pendiente:parseFloat(document.getElementById('f_pendiente').value)||0,
     municipio,departamento:document.getElementById('f_depto').value,
-    provincia:provinciaMap[(municipio||'').replace(/^\d{5}\s+/,'')]||'',
+    provincia:buscarProvincia(municipio),
     vereda:document.getElementById('f_vereda').value,
     descripcion_acceso:document.getElementById('f_descripcion_acceso').value,
     fecha_entrega:toExcelDate(document.getElementById('f_fecha_entrega').value),
@@ -557,10 +580,11 @@ function construirRegistro(){
   return reg;
 }
 
-// Esquema: rural_Municipio_Vereda_Contratante_Fecha
+// Esquema: CODIGODANE_Municipio_rural_Vereda_Contratante_Fecha
 function nombreBase(reg){
   const limpia=s=>(s||'').toString().trim().replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
-  return ['rural',limpia(reg.municipio),limpia(reg.vereda),limpia(reg.contratante),reg.fecha_visita_texto||''].filter(Boolean).join('_');
+  // reg.municipio viene como "15087 Belen" -> queda "15087_Belen" al frente
+  return [limpia(reg.municipio),'rural',limpia(reg.vereda),limpia(reg.contratante),reg.fecha_visita_texto||''].filter(Boolean).join('_');
 }
 function nombreArchivo(reg){
   return nombreBase(reg)+'_Db.json';

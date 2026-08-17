@@ -377,9 +377,10 @@
         if(r.nombre_base) return r.nombre_base;
         const limpia=s=>(s||'').toString().trim().replace(/\s+/g,'_');
         const t=(r.tipo==='RURAL')?'rural':'urbano';
+        // nuevo esquema: CODIGODANE_Municipio_tipo_... (municipio ya trae el DANE)
         const partes=(r.tipo==='RURAL')
-          ? [t,limpia(r.municipio),limpia(r.vereda),limpia(r.contratante),r.fecha_visita_texto||'']
-          : [t,limpia(r.municipio),limpia(r.contratante),r.fecha_visita_texto||''];
+          ? [limpia(r.municipio),t,limpia(r.vereda),limpia(r.contratante),r.fecha_visita_texto||'']
+          : [limpia(r.municipio),t,limpia(r.contratante),r.fecha_visita_texto||''];
         const b=partes.filter(Boolean).join('_');
         return b.length>3 ? b : '';
       };
