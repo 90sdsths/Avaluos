@@ -142,6 +142,7 @@
       </div>
     </div>
     <div class="field"><label>Vereda</label><input type="text" id="f_vereda" placeholder="Nombre de la vereda"></div>
+    <div class="field"><label>Nombre del predio</label><input type="text" id="f_nombre_predio" placeholder="Ej: El Recuerdo, Lote 3, La Esperanza"></div>
     <div class="field"><label>Descripción de acceso / dirección</label><textarea id="f_descripcion_acceso" placeholder="Descripción de cómo llegar al predio"></textarea></div>
   </div>
 </div>
@@ -466,7 +467,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 
-const tracked=['f_fecha_visita','f_contratante','f_municipio','f_vereda','f_area_const','f_techo','f_muro','f_piso','f_propietario','f_matricula','f_uso_suelo'];
+const tracked=['f_fecha_visita','f_contratante','f_municipio','f_vereda','f_nombre_predio','f_area_const','f_techo','f_muro','f_piso','f_propietario','f_matricula','f_uso_suelo'];
 function updateProgress(){
   let f=tracked.filter(id=>{const el=document.getElementById(id);return el&&el.value&&el.value.trim()!=='';}).length;
   f+=document.querySelectorAll('.chip.active').length;
@@ -513,6 +514,7 @@ function construirRegistro(){
     anticipo:parseFloat(document.getElementById('f_anticipo').value)||0,
     pendiente:parseFloat(document.getElementById('f_pendiente').value)||0,
     municipio,departamento:document.getElementById('f_depto').value,
+    nombre_predio:document.getElementById('f_nombre_predio').value,
     provincia:buscarProvincia(municipio),
     vereda:document.getElementById('f_vereda').value,
     descripcion_acceso:document.getElementById('f_descripcion_acceso').value,
@@ -584,7 +586,7 @@ function construirRegistro(){
 function nombreBase(reg){
   const limpia=s=>(s||'').toString().trim().replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
   // reg.municipio viene como "15087 Belen" -> queda "15087_Belen" al frente
-  return [limpia(reg.municipio),'rural',limpia(reg.vereda),limpia(reg.contratante),reg.fecha_visita_texto||''].filter(Boolean).join('_');
+  return [limpia(reg.municipio),'rural',limpia(reg.vereda),limpia(reg.nombre_predio),limpia(reg.contratante),reg.fecha_visita_texto||''].filter(Boolean).join('_');
 }
 function nombreArchivo(reg){
   return nombreBase(reg)+'_Db.json';
@@ -632,7 +634,7 @@ function limpiar(){
   const setV=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v;};
   setV('f_fecha_visita',d.fecha_visita_texto);setV('f_contratante',d.contratante);
   setV('f_total',d.total);setV('f_anticipo',d.anticipo);setV('f_pendiente',d.pendiente);
-  if(d.departamento){document.getElementById('f_depto').value=d.departamento;poblarMunicipios(d.municipio);}else{setV('f_municipio',d.municipio);}setV('f_vereda',d.vereda);
+  if(d.departamento){document.getElementById('f_depto').value=d.departamento;poblarMunicipios(d.municipio);}else{setV('f_municipio',d.municipio);}setV('f_vereda',d.vereda);setV('f_nombre_predio',d.nombre_predio);
   setV('f_descripcion_acceso',d.descripcion_acceso);
   setV('env_vias_acceso',d.vias_acceso);setV('env_vias_internas',d.vias_internas);
   setV('env_servidumbres',d.servidumbres);setV('env_erosion',d.erosion);setV('env_topografia',d.topografia);

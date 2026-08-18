@@ -533,7 +533,7 @@ function construirRegistro(){
 function nombreBase(reg){
   const limpia=s=>(s||'').toString().trim().replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
   // reg.municipio viene como "15087 Belen" -> queda "15087_Belen" al frente
-  return [limpia(reg.municipio),'urbano',limpia(reg.contratante),reg.fecha_visita_texto||''].filter(Boolean).join('_');
+  return [limpia(reg.municipio),'urbano',limpia(reg.direccion),limpia(reg.contratante),reg.fecha_visita_texto||''].filter(Boolean).join('_');
 }
 function nombreArchivo(reg){
   return nombreBase(reg)+'_Db.json';
