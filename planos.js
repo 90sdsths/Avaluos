@@ -6,11 +6,216 @@
 // API: crearEditorPlanos(id,color) -> {getData,setData}
 // =============================================================
 
+// =============================================================
+// CATÁLOGO DE ELEMENTOS
+// -------------------------------------------------------------
+// Cada forma se describe como DATOS, no como código: unas pocas
+// primitivas en coordenadas normalizadas (0..1 dentro de la caja
+// del elemento). Un solo dibujante genérico las pinta, así que
+// rotación, redimensión, selección y calco funcionan igual para
+// todas y agregar una forma nueva son 3 líneas.
+//   r = rectángulo {x,y,w,h}    c = círculo {x,y,r}
+//   e = elipse {x,y,rx,ry}      l = línea {x1,y1,x2,y2}
+//   f:1 = relleno de la forma   sw = grosor   d:1 = punteada
+// 'nativo' = la dibuja/crea su propio código (puerta, ventana,
+// escaleras, borrador), aquí solo aporta el botón del catálogo.
+// =============================================================
+const PL_CATEGORIAS = [
+  { id:'cocina', ic:'🍽',  lbl:'Cocina'  },
+  { id:'bano',   ic:'🚿',  lbl:'Baño'    },
+  { id:'alcoba', ic:'🛏',  lbl:'Alcoba'  },
+  { id:'ropas',  ic:'🧺',  lbl:'Ropas'   },
+  { id:'muros',  ic:'🧱',  lbl:'Muros'   },
+  { id:'rural',  ic:'🌾',  lbl:'Rural'   },
+  { id:'otros',  ic:'⬜',  lbl:'Otros'   }
+];
+
+const PL_MADERA = '#8a6d3b', PL_AGUA = '#4a6b8a', PL_TELA = '#6b5b95',
+      PL_VERDE  = '#2E7D32', PL_GRIS = '#5F6368';
+
+const PL_CATALOGO = [
+  // ---------------- COCINA ----------------
+  { k:'counter', cat:'cocina', ic:'🍽', lbl:'Mesón', w:130, h:40, color:PL_MADERA, fill:'rgba(150,110,70,0.12)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:3},
+     {t:'r',x:0.10,y:0.25,w:0.28,h:0.50,rx:3,sw:1.5},
+     {t:'c',x:0.62,y:0.35,r:0.09,sw:1.3},
+     {t:'c',x:0.82,y:0.65,r:0.09,sw:1.3} ]},
+  { k:'stove', cat:'cocina', ic:'🔥', lbl:'Estufa', w:52, h:52, color:PL_MADERA, fill:'rgba(150,110,70,0.12)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:2},
+     {t:'c',x:0.30,y:0.30,r:0.15,sw:1.3},{t:'c',x:0.70,y:0.30,r:0.15,sw:1.3},
+     {t:'c',x:0.30,y:0.70,r:0.15,sw:1.3},{t:'c',x:0.70,y:0.70,r:0.15,sw:1.3} ]},
+  { k:'fridge', cat:'cocina', ic:'🧊', lbl:'Nevera', w:45, h:60, color:PL_AGUA, fill:'rgba(74,107,138,0.08)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:2},
+     {t:'l',x1:0,y1:0.35,x2:1,y2:0.35,sw:1.4},
+     {t:'l',x1:0.84,y1:0.16,x2:0.84,y2:0.29,sw:1.6},
+     {t:'l',x1:0.84,y1:0.42,x2:0.84,y2:0.60,sw:1.6} ]},
+  { k:'sink', cat:'cocina', ic:'🚰', lbl:'Lavaplatos', w:56, h:42, color:PL_AGUA, fill:'rgba(74,107,138,0.08)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:2},
+     {t:'r',x:0.08,y:0.20,w:0.50,h:0.60,rx:2,sw:1.4},
+     {t:'l',x1:0.80,y1:0.50,x2:0.80,y2:0.22,sw:1.6},
+     {t:'c',x:0.80,y:0.20,r:0.06,sw:1.3} ]},
+  { k:'cupboard', cat:'cocina', ic:'🗄', lbl:'Alacena', w:75, h:28, color:PL_MADERA, fill:'rgba(150,110,70,0.10)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1},
+     {t:'l',x1:0.5,y1:0,x2:0.5,y2:1,sw:1.4},
+     {t:'l',x1:0.44,y1:0.40,x2:0.44,y2:0.65,sw:1.5},
+     {t:'l',x1:0.56,y1:0.40,x2:0.56,y2:0.65,sw:1.5} ]},
+
+  // ---------------- BAÑO ----------------
+  { k:'toilet', cat:'bano', ic:'🚽', lbl:'Inodoro', w:50, h:70, color:PL_AGUA, fill:'rgba(74,107,138,0.08)', dib:[
+     {t:'r',x:0.18,y:0,w:0.64,h:0.28,f:1,rx:2},
+     {t:'e',x:0.5,y:0.62,rx:0.36,ry:0.36,f:1} ]},
+  { k:'washbasin', cat:'bano', ic:'🧼', lbl:'Lavamanos', w:46, h:40, color:PL_AGUA, fill:'rgba(74,107,138,0.08)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:3},
+     {t:'e',x:0.5,y:0.58,rx:0.34,ry:0.30,sw:1.4},
+     {t:'l',x1:0.5,y1:0.05,x2:0.5,y2:0.22,sw:1.6} ]},
+  { k:'shower', cat:'bano', ic:'🚿', lbl:'Ducha', w:52, h:52, color:PL_AGUA, fill:'rgba(74,107,138,0.08)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1},
+     {t:'c',x:0.50,y:0.22,r:0.13,sw:1.4},
+     {t:'l',x1:0.36,y1:0.42,x2:0.30,y2:0.70,sw:1.1,d:1},
+     {t:'l',x1:0.50,y1:0.42,x2:0.50,y2:0.72,sw:1.1,d:1},
+     {t:'l',x1:0.64,y1:0.42,x2:0.70,y2:0.70,sw:1.1,d:1},
+     {t:'c',x:0.50,y:0.84,r:0.06,sw:1.3} ]},
+  { k:'tub', cat:'bano', ic:'🛁', lbl:'Tina', w:92, h:46, color:PL_AGUA, fill:'rgba(74,107,138,0.08)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:6},
+     {t:'r',x:0.06,y:0.16,w:0.72,h:0.68,rx:5,sw:1.4},
+     {t:'c',x:0.88,y:0.50,r:0.07,sw:1.3} ]},
+
+  // ---------------- ALCOBA / SALA ----------------
+  { k:'bed1', cat:'alcoba', ic:'🛏', lbl:'Cama sencilla', w:56, h:96, color:PL_TELA, fill:'rgba(107,91,149,0.10)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:3},
+     {t:'r',x:0.08,y:0.03,w:0.84,h:0.17,rx:3,sw:1.4},
+     {t:'l',x1:0,y1:0.24,x2:1,y2:0.24,sw:1.4} ]},
+  { k:'bed2', cat:'alcoba', ic:'🛏', lbl:'Cama doble', w:88, h:96, color:PL_TELA, fill:'rgba(107,91,149,0.10)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:3},
+     {t:'r',x:0.06,y:0.03,w:0.40,h:0.17,rx:3,sw:1.4},
+     {t:'r',x:0.54,y:0.03,w:0.40,h:0.17,rx:3,sw:1.4},
+     {t:'l',x1:0,y1:0.24,x2:1,y2:0.24,sw:1.4} ]},
+  { k:'closet', cat:'alcoba', ic:'👔', lbl:'Closet', w:92, h:28, color:PL_MADERA, fill:'rgba(150,110,70,0.10)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1},
+     {t:'l',x1:0.5,y1:0,x2:0.5,y2:1,sw:1.4},
+     {t:'l',x1:0.05,y1:0.5,x2:0.95,y2:0.5,sw:1.1,d:1} ]},
+  { k:'sofa', cat:'alcoba', ic:'🛋', lbl:'Sofá', w:92, h:42, color:PL_TELA, fill:'rgba(107,91,149,0.10)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:4},
+     {t:'r',x:0.11,y:0.28,w:0.78,h:0.66,rx:3,sw:1.4},
+     {t:'r',x:0,y:0.14,w:0.11,h:0.80,rx:2,sw:1.2},
+     {t:'r',x:0.89,y:0.14,w:0.11,h:0.80,rx:2,sw:1.2} ]},
+  { k:'dining', cat:'alcoba', ic:'🍴', lbl:'Comedor', w:84, h:58, color:PL_MADERA, fill:'rgba(150,110,70,0.10)', dib:[
+     {t:'r',x:0.18,y:0.15,w:0.64,h:0.70,f:1,rx:3},
+     {t:'r',x:0.01,y:0.35,w:0.12,h:0.30,rx:2,sw:1.2},
+     {t:'r',x:0.87,y:0.35,w:0.12,h:0.30,rx:2,sw:1.2},
+     {t:'r',x:0.35,y:0.01,w:0.30,h:0.10,rx:2,sw:1.2},
+     {t:'r',x:0.35,y:0.89,w:0.30,h:0.10,rx:2,sw:1.2} ]},
+  { k:'tv', cat:'alcoba', ic:'📺', lbl:'TV / mueble', w:64, h:22, color:PL_GRIS, fill:'rgba(95,99,104,0.12)', dib:[
+     {t:'r',x:0,y:0.45,w:1,h:0.55,f:1,rx:2},
+     {t:'r',x:0.22,y:0,w:0.56,h:0.38,f:1,rx:1,sw:1.4},
+     {t:'l',x1:0.50,y1:0.38,x2:0.50,y2:0.45,sw:1.2} ]},
+
+  // ---------------- ROPAS / PATIO ----------------
+  { k:'washer', cat:'ropas', ic:'🧺', lbl:'Lavadora', w:46, h:46, color:PL_AGUA, fill:'rgba(74,107,138,0.08)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:3},
+     {t:'l',x1:0.08,y1:0.20,x2:0.92,y2:0.20,sw:1.3},
+     {t:'c',x:0.50,y:0.60,r:0.26,sw:1.5},
+     {t:'c',x:0.50,y:0.60,r:0.15,sw:1.1} ]},
+  { k:'laundry', cat:'ropas', ic:'🚰', lbl:'Lavadero', w:62, h:46, color:PL_AGUA, fill:'rgba(74,107,138,0.10)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:2},
+     {t:'r',x:0.06,y:0.15,w:0.44,h:0.70,rx:2,sw:1.4},
+     {t:'l',x1:0.60,y1:0.20,x2:0.60,y2:0.80,sw:1.1},
+     {t:'l',x1:0.70,y1:0.20,x2:0.70,y2:0.80,sw:1.1},
+     {t:'l',x1:0.80,y1:0.20,x2:0.80,y2:0.80,sw:1.1},
+     {t:'l',x1:0.90,y1:0.20,x2:0.90,y2:0.80,sw:1.1} ]},
+  { k:'clothesline', cat:'ropas', ic:'👕', lbl:'Tendedero', w:104, h:32, color:PL_GRIS, fill:'none', dib:[
+     {t:'l',x1:0.02,y1:0,x2:0.02,y2:1,sw:2},
+     {t:'l',x1:0.98,y1:0,x2:0.98,y2:1,sw:2},
+     {t:'l',x1:0.02,y1:0.20,x2:0.98,y2:0.20,sw:1.2},
+     {t:'l',x1:0.02,y1:0.50,x2:0.98,y2:0.50,sw:1.2},
+     {t:'l',x1:0.02,y1:0.80,x2:0.98,y2:0.80,sw:1.2} ]},
+  { k:'tank', cat:'ropas', ic:'💧', lbl:'Tanque de agua', w:46, h:46, color:PL_AGUA, fill:'rgba(74,107,138,0.14)', dib:[
+     {t:'e',x:0.5,y:0.5,rx:0.48,ry:0.48,f:1},
+     {t:'e',x:0.5,y:0.5,rx:0.34,ry:0.34,sw:1.2},
+     {t:'l',x1:0.20,y1:0.44,x2:0.80,y2:0.44,sw:1.2,d:1},
+     {t:'l',x1:0.24,y1:0.60,x2:0.76,y2:0.60,sw:1.2,d:1} ]},
+  { k:'patio', cat:'ropas', ic:'▦', lbl:'Patio / zona dura', w:92, h:72, color:PL_GRIS, fill:'rgba(95,99,104,0.05)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,d:1},
+     {t:'l',x1:0.33,y1:0,x2:0.33,y2:1,sw:1,d:1},
+     {t:'l',x1:0.66,y1:0,x2:0.66,y2:1,sw:1,d:1},
+     {t:'l',x1:0,y1:0.5,x2:1,y2:0.5,sw:1,d:1} ]},
+
+  // ---------------- MUROS / ESTRUCTURA ----------------
+  { k:'wall', cat:'muros', ic:'🧱', lbl:'Muro', w:120, h:10, color:'#3c4043', fill:'rgba(95,99,104,0.55)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,sw:1} ]},
+  { k:'column', cat:'muros', ic:'▪', lbl:'Columna', w:22, h:22, color:'#3c4043', fill:'rgba(95,99,104,0.55)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,sw:1} ]},
+  { k:'door',   cat:'muros', ic:'🚪', lbl:'Puerta',    nativo:1 },
+  { k:'window', cat:'muros', ic:'🪟', lbl:'Ventana',   nativo:1 },
+  { k:'stairs', cat:'muros', ic:'🪜', lbl:'Escaleras', nativo:1 },
+  { k:'gate', cat:'muros', ic:'🚧', lbl:'Portón / reja', w:92, h:14, color:PL_GRIS, fill:'rgba(95,99,104,0.10)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1},
+     {t:'l',x1:0.16,y1:0,x2:0.16,y2:1,sw:1.2},
+     {t:'l',x1:0.32,y1:0,x2:0.32,y2:1,sw:1.2},
+     {t:'l',x1:0.48,y1:0,x2:0.48,y2:1,sw:1.2},
+     {t:'l',x1:0.64,y1:0,x2:0.64,y2:1,sw:1.2},
+     {t:'l',x1:0.80,y1:0,x2:0.80,y2:1,sw:1.2} ]},
+
+  // ---------------- RURAL ----------------
+  { k:'corral', cat:'rural', ic:'🐄', lbl:'Corral', w:120, h:86, color:PL_MADERA, fill:'rgba(150,110,70,0.05)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,d:1},
+     {t:'c',x:0.03,y:0.04,r:0.05,f:1,sw:1.2},{t:'c',x:0.97,y:0.04,r:0.05,f:1,sw:1.2},
+     {t:'c',x:0.03,y:0.96,r:0.05,f:1,sw:1.2},{t:'c',x:0.97,y:0.96,r:0.05,f:1,sw:1.2} ]},
+  { k:'barn', cat:'rural', ic:'🏚', lbl:'Galpón / establo', w:104, h:74, color:PL_MADERA, fill:'rgba(150,110,70,0.12)', dib:[
+     {t:'r',x:0,y:0.30,w:1,h:0.70,f:1},
+     {t:'l',x1:0,y1:0.30,x2:0.5,y2:0.02,sw:2},
+     {t:'l',x1:0.5,y1:0.02,x2:1,y2:0.30,sw:2},
+     {t:'r',x:0.40,y:0.60,w:0.20,h:0.40,sw:1.3} ]},
+  { k:'shed', cat:'rural', ic:'⛺', lbl:'Enramada', w:96, h:60, color:PL_MADERA, fill:'none', dib:[
+     {t:'l',x1:0,y1:0.32,x2:0.5,y2:0.03,sw:2},
+     {t:'l',x1:0.5,y1:0.03,x2:1,y2:0.32,sw:2},
+     {t:'l',x1:0,y1:0.32,x2:1,y2:0.32,sw:1.2,d:1},
+     {t:'l',x1:0.06,y1:0.32,x2:0.06,y2:1,sw:1.6},
+     {t:'l',x1:0.94,y1:0.32,x2:0.94,y2:1,sw:1.6} ]},
+  { k:'trough', cat:'rural', ic:'🐖', lbl:'Bebedero', w:64, h:26, color:PL_AGUA, fill:'rgba(74,107,138,0.10)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:3},
+     {t:'l',x1:0.05,y1:0.38,x2:0.95,y2:0.38,sw:1.1,d:1} ]},
+  { k:'well', cat:'rural', ic:'🕳', lbl:'Pozo / aljibe', w:42, h:42, color:PL_AGUA, fill:'rgba(74,107,138,0.12)', dib:[
+     {t:'c',x:0.5,y:0.5,r:0.46,f:1},
+     {t:'c',x:0.5,y:0.5,r:0.30,sw:1.3} ]},
+  { k:'septic', cat:'rural', ic:'⚫', lbl:'Pozo séptico', w:58, h:38, color:PL_GRIS, fill:'rgba(95,99,104,0.10)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:3,d:1},
+     {t:'l',x1:0.55,y1:0.06,x2:0.55,y2:0.94,sw:1.6},
+     {t:'l',x1:0.55,y1:0.42,x2:0.55,y2:0.58,sw:2.4},
+     {t:'l',x1:0.10,y1:0.30,x2:0.45,y2:0.30,sw:1.1,d:1},
+     {t:'l',x1:0.10,y1:0.55,x2:0.45,y2:0.55,sw:1.1,d:1} ]},
+  { k:'woodstove', cat:'rural', ic:'🔥', lbl:'Fogón de leña', w:54, h:48, color:PL_MADERA, fill:'rgba(150,110,70,0.14)', dib:[
+     {t:'r',x:0,y:0.14,w:1,h:0.86,f:1,rx:2},
+     {t:'r',x:0.68,y:0,w:0.22,h:0.18,sw:1.3},
+     {t:'c',x:0.42,y:0.55,r:0.20,sw:1.5} ]},
+
+  // ---------------- OTROS ----------------
+  { k:'erase', cat:'otros', ic:'⬜', lbl:'Borrador', nativo:1 },
+  { k:'garage', cat:'otros', ic:'🚗', lbl:'Garaje', w:94, h:58, color:PL_GRIS, fill:'rgba(95,99,104,0.05)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,d:1},
+     {t:'r',x:0.14,y:0.36,w:0.72,h:0.34,rx:4,sw:1.4},
+     {t:'r',x:0.30,y:0.16,w:0.40,h:0.22,rx:3,sw:1.2},
+     {t:'c',x:0.26,y:0.76,r:0.08,sw:1.2},
+     {t:'c',x:0.74,y:0.76,r:0.08,sw:1.2} ]},
+  { k:'tree', cat:'otros', ic:'🌳', lbl:'Árbol', w:42, h:42, color:PL_VERDE, fill:'rgba(46,125,50,0.12)', dib:[
+     {t:'c',x:0.5,y:0.38,r:0.34,f:1},
+     {t:'l',x1:0.5,y1:0.72,x2:0.5,y2:1,sw:1.8} ]},
+  { k:'garden', cat:'otros', ic:'🌱', lbl:'Jardinera', w:74, h:36, color:PL_VERDE, fill:'rgba(46,125,50,0.08)', dib:[
+     {t:'r',x:0,y:0,w:1,h:1,f:1,rx:3,d:1},
+     {t:'c',x:0.22,y:0.5,r:0.13,sw:1.2},
+     {t:'c',x:0.50,y:0.5,r:0.13,sw:1.2},
+     {t:'c',x:0.78,y:0.5,r:0.13,sw:1.2} ]}
+];
+
+const PL_POR_CLAVE = {};
+PL_CATALOGO.forEach(d => { PL_POR_CLAVE[d.k] = d; });
+
 function crearEditorPlanos(containerId, colorTema) {
   const TEMA = colorTema || '#1A73E8';
   const SEL = '#FF6D00';          // naranja de selección (fijo)
   const cont = document.getElementById(containerId);
   if (!cont) return null;
+  let catAbierta = null;          // categoría del catálogo desplegada
 
   let plantas = [{ nombre: 'Piso 1', elementos: [] }];
   let plantaActiva = 0;
@@ -29,18 +234,14 @@ function crearEditorPlanos(containerId, colorTema) {
       <button type="button" class="pl-btn" data-act="room">▭ Habitación</button>
       <button type="button" class="pl-btn" data-act="triangle">◣ Triángulo</button>
       <button type="button" class="pl-btn" data-act="semi">◗ Semicírculo</button>
-      <button type="button" class="pl-btn" data-act="counter">🍽 Mesón</button>
-      <button type="button" class="pl-btn" data-act="toilet">🚽 Inodoro</button>
-      <button type="button" class="pl-btn" data-act="door">🚪 Puerta</button>
-      <button type="button" class="pl-btn" data-act="window">🪟 Ventana</button>
-      <button type="button" class="pl-btn" data-act="stairs">🪜 Escaleras</button>
-      <button type="button" class="pl-btn" data-act="erase">⬜ Borrador</button>
     </div>
     <div class="pl-toolbar">
       <button type="button" class="pl-btn pl-btn-rot" data-act="rotate">↻ Rotar</button>
       <button type="button" class="pl-btn pl-btn-merge" data-act="merge">⧉ Fusionar</button>
       <button type="button" class="pl-btn pl-btn-del" data-act="delete">🗑 Borrar</button>
     </div>
+    <div class="pl-cats" id="${containerId}_cats"></div>
+    <div class="pl-items" id="${containerId}_items"></div>
     <div class="pl-size" id="${containerId}_sizebar">
       <span class="pl-size-lbl">Tamaño:</span>
       <button type="button" class="pl-btn pl-btn-sz" data-size="w-">↔ −</button>
@@ -53,13 +254,15 @@ function crearEditorPlanos(containerId, colorTema) {
     <div class="pl-canvas-wrap">
       <svg id="${containerId}_svg" viewBox="0 0 ${VB_W} ${VB_H}" class="pl-svg" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
-    <div class="pl-hint">Toca para seleccionar (gana la forma más pequeña bajo el dedo) · arrastra para mover · esquina ✛ redimensiona, incluso rotada · o usa <b>Tamaño ↔ ↕</b> si la forma es delgada · doble toque para renombrar/medida · <b>Fusionar</b>: toca dos formas y pulsa Fusionar</div>
+    <div class="pl-hint">Toca para seleccionar (gana la forma más pequeña bajo el dedo) · arrastra para mover · esquina ✛ redimensiona, incluso rotada · o usa <b>Tamaño ↔ ↕</b> si la forma es delgada · doble toque para renombrar/medida · <b>Fusionar</b>: toca dos formas y pulsa Fusionar · los demás elementos están en las categorías 🍽 🚿 🛏 🧺 🧱 🌾 ⬜</div>
   `;
 
   const svg = document.getElementById(containerId + '_svg');
   const tabsEl = document.getElementById(containerId + '_tabs');
   const calcoChk = document.getElementById(containerId + '_calco');
   const sizeBar = document.getElementById(containerId + '_sizebar');
+  const catsEl  = document.getElementById(containerId + '_cats');
+  const itemsEl = document.getElementById(containerId + '_items');
   calcoChk.addEventListener('change', render);
 
   if (!document.getElementById('pl-styles')) {
@@ -77,6 +280,14 @@ function crearEditorPlanos(containerId, colorTema) {
       .pl-btn-del{color:#D93025;border-color:#F3C0BB;}
       .pl-btn-rot{color:#188038;border-color:#B7DFC2;}
       .pl-btn-merge{color:#7B3FF2;border-color:#D2BEF7;}
+      .pl-cats{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;}
+      .pl-cat{padding:6px 10px;border-radius:16px;font-size:11.5px;border:1.5px solid #DADCE0;background:#fff;color:#5F6368;cursor:pointer;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+      .pl-cat.on{background:#FFF1E6;border-color:#FF6D00;color:#C75A00;font-weight:600;}
+      .pl-items{display:none;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:5px;margin-bottom:8px;padding:7px;border:1.5px dashed #DADCE0;border-radius:8px;background:#FAFBFC;}
+      .pl-items.show{display:grid;}
+      .pl-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:7px 2px;border-radius:7px;border:1.5px solid #DADCE0;background:#fff;color:#202124;cursor:pointer;font-family:inherit;font-size:9.5px;line-height:1.15;text-align:center;-webkit-tap-highlight-color:transparent;}
+      .pl-item .ic{font-size:17px;line-height:1;}
+      .pl-item:active{transform:scale(0.95);background:#F1F3F4;}
       .pl-size{display:none;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding:6px;border:1.5px dashed #DADCE0;border-radius:8px;background:#FAFBFC;}
       .pl-size.show{display:flex;}
       .pl-size-lbl{font-size:11px;color:#5F6368;padding:0 2px;}
@@ -133,6 +344,35 @@ function crearEditorPlanos(containerId, colorTema) {
     tabsEl.appendChild(add);
   }
 
+  // Construye la fila de categorías y la rejilla de elementos del catálogo.
+  // Solo una categoría abierta a la vez: cerrada ocupa una sola fila.
+  function renderCatalogo() {
+    catsEl.innerHTML = '';
+    PL_CATEGORIAS.forEach(c => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pl-cat' + (catAbierta === c.id ? ' on' : '');
+      b.textContent = c.ic + ' ' + c.lbl;
+      b.addEventListener('click', () => {
+        catAbierta = (catAbierta === c.id) ? null : c.id;
+        renderCatalogo();
+      });
+      catsEl.appendChild(b);
+    });
+    itemsEl.innerHTML = '';
+    itemsEl.classList.toggle('show', !!catAbierta);
+    if (!catAbierta) return;
+    PL_CATALOGO.filter(d => d.cat === catAbierta).forEach(d => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pl-item';
+      b.title = d.lbl;
+      b.innerHTML = `<span class="ic">${d.ic}</span><span>${d.lbl}</span>`;
+      b.addEventListener('click', () => addEl(d.k));
+      itemsEl.appendChild(b);
+    });
+  }
+
   function nuevaPlanta() {
     const tieneAnterior = plantas[plantaActiva] && plantas[plantaActiva].elementos.length;
     let copiar = false;
@@ -144,6 +384,36 @@ function crearEditorPlanos(containerId, colorTema) {
     plantas.push({ nombre: 'Piso ' + (plantas.length + 1), elementos: nuevos });
     plantaActiva = plantas.length - 1;
     seleccion = []; renderTabs(); render();
+  }
+
+  // Pinta una forma del catálogo a partir de sus primitivas normalizadas.
+  // Devuelve UN grupo <g> ya rotado, igual que hacían mesón e inodoro antes.
+  function dibujarDelCatalogo(el, def, sel, calco, sw, dash) {
+    const w = el.w || def.w, h = el.h || def.h;
+    const rot = el.rot || 0;
+    const g = mk('g', { transform: rot ? `rotate(${rot} ${el.x + w/2} ${el.y + h/2})` : '' });
+    g.setAttribute('pointer-events', 'none');
+    const col  = calco ? '#8Fb4e8' : (sel ? SEL : (def.color || PL_GRIS));
+    const rell = sel ? 'rgba(255,109,0,0.14)'
+                     : (calco ? 'rgba(26,115,232,0.05)' : (def.fill || 'none'));
+    const X = u => el.x + u * w, Y = v => el.y + v * h, MIN = Math.min(w, h);
+    def.dib.forEach(p => {
+      const base = {
+        fill: p.f ? rell : 'none', stroke: col,
+        'stroke-width': p.sw != null ? p.sw : sw,
+        'stroke-dasharray': dash || (p.d ? '4 3' : '')
+      };
+      if (p.t === 'r') {
+        g.appendChild(mk('rect', Object.assign({ x:X(p.x), y:Y(p.y), width:p.w*w, height:p.h*h, rx:p.rx }, base)));
+      } else if (p.t === 'c') {
+        g.appendChild(mk('circle', Object.assign({ cx:X(p.x), cy:Y(p.y), r:p.r*MIN }, base)));
+      } else if (p.t === 'e') {
+        g.appendChild(mk('ellipse', Object.assign({ cx:X(p.x), cy:Y(p.y), rx:p.rx*w, ry:p.ry*h }, base)));
+      } else if (p.t === 'l') {
+        g.appendChild(mk('line', Object.assign({ x1:X(p.x1), y1:Y(p.y1), x2:X(p.x2), y2:Y(p.y2) }, base, { fill:'none' })));
+      }
+    });
+    return g;
   }
 
   // Dibuja una sub-forma. opts.sel, opts.calco
@@ -168,8 +438,6 @@ function crearEditorPlanos(containerId, colorTema) {
       const r = el.w/2;
       const d = `M ${el.x} ${el.y+r} A ${r} ${r} 0 0 1 ${el.x+el.w} ${el.y+r} Z`;
       nodes.push(mk('path', {d,fill,stroke,'stroke-width':sw,'stroke-dasharray':dash,transform}));
-    } else if (el.tipo === 'wall') {
-      nodes.push(mk('rect', {x:el.x,y:el.y,width:el.w,height:el.h,fill:calco?'rgba(95,99,104,0.2)':(sel?SEL:'#5F6368'),stroke:sel?SEL:'#3c4043','stroke-width':1,'stroke-dasharray':dash,transform}));
     } else if (el.tipo === 'door') {
       const t = `rotate(${rot} ${el.x+15} ${el.y+15})`;
       nodes.push(mk('path', {d:`M ${el.x} ${el.y+30} L ${el.x} ${el.y} A 30 30 0 0 1 ${el.x+30} ${el.y+30} Z`,fill:sel?'rgba(255,109,0,0.18)':'none',stroke:calco?'#8Fb4e8':(sel?SEL:'#888'),'stroke-width':sel?2.5:2,'stroke-dasharray':dash,transform:t}));
@@ -189,28 +457,9 @@ function crearEditorPlanos(containerId, colorTema) {
       gs.appendChild(mk('line', {x1:el.x+el.w/2,y1:el.y+el.h-6,x2:el.x+el.w/2,y2:el.y+6,stroke:sel?SEL:'#666','stroke-width':1.5}));
       gs.appendChild(mk('path', {d:`M ${el.x+el.w/2-4} ${el.y+12} L ${el.x+el.w/2} ${el.y+5} L ${el.x+el.w/2+4} ${el.y+12}`,fill:'none',stroke:sel?SEL:'#666','stroke-width':1.5}));
       nodes.push(gs);
-    } else if (el.tipo === 'counter') {
-      // Mesón de cocina: rectángulo con borde grueso y poceta (círculo) + línea de fogones
-      const t = `rotate(${rot} ${el.x+el.w/2} ${el.y+el.h/2})`;
-      const gs = mk('g', {transform:t}); gs.setAttribute('pointer-events','none');
-      gs.appendChild(mk('rect', {x:el.x,y:el.y,width:el.w,height:el.h,fill:calco?'rgba(120,80,40,0.08)':(sel?'rgba(255,109,0,0.14)':'rgba(150,110,70,0.12)'),stroke:calco?'#8Fb4e8':(sel?SEL:'#8a6d3b'),'stroke-width':sw,'stroke-dasharray':dash,rx:3}));
-      // poceta (lavaplatos)
-      gs.appendChild(mk('rect', {x:el.x+el.w*0.1,y:el.y+el.h*0.25,width:el.w*0.28,height:el.h*0.5,rx:3,fill:'none',stroke:sel?SEL:'#8a6d3b','stroke-width':1.5}));
-      // fogones (2 círculos)
-      gs.appendChild(mk('circle', {cx:el.x+el.w*0.62,cy:el.y+el.h*0.35,r:Math.min(el.w,el.h)*0.09,fill:'none',stroke:sel?SEL:'#8a6d3b','stroke-width':1.3}));
-      gs.appendChild(mk('circle', {cx:el.x+el.w*0.82,cy:el.y+el.h*0.65,r:Math.min(el.w,el.h)*0.09,fill:'none',stroke:sel?SEL:'#8a6d3b','stroke-width':1.3}));
-      nodes.push(gs);
-    } else if (el.tipo === 'toilet') {
-      // Inodoro: tanque (rect) + taza (elipse)
-      const t = `rotate(${rot} ${el.x+el.w/2} ${el.y+el.h/2})`;
-      const gs = mk('g', {transform:t}); gs.setAttribute('pointer-events','none');
-      const col = calco ? '#8Fb4e8' : (sel ? SEL : '#4a6b8a');
-      const f = sel ? 'rgba(255,109,0,0.12)' : (calco?'rgba(26,115,232,0.05)':'rgba(74,107,138,0.08)');
-      // tanque
-      gs.appendChild(mk('rect', {x:el.x+el.w*0.18,y:el.y,width:el.w*0.64,height:el.h*0.28,rx:2,fill:f,stroke:col,'stroke-width':sw,'stroke-dasharray':dash}));
-      // taza (elipse)
-      gs.appendChild(mk('ellipse', {cx:el.x+el.w/2,cy:el.y+el.h*0.62,rx:el.w*0.36,ry:el.h*0.36,fill:f,stroke:col,'stroke-width':sw,'stroke-dasharray':dash}));
-      nodes.push(gs);
+    } else if (PL_POR_CLAVE[el.tipo] && PL_POR_CLAVE[el.tipo].dib) {
+      // Formas del CATÁLOGO: se pintan desde sus primitivas normalizadas.
+      nodes.push(dibujarDelCatalogo(el, PL_POR_CLAVE[el.tipo], sel, calco, sw, dash));
     } else if (el.tipo === 'erase') {
       // Borrador de área: rectángulo blanco opaco que tapa lo que esté debajo.
       // Si está seleccionado, se ve con borde naranja punteado para poder ajustarlo.
@@ -343,7 +592,7 @@ function crearEditorPlanos(containerId, colorTema) {
       }
 
       // etiqueta + medida
-      if (['room','triangle','semi','stairs','grupo'].includes(el.tipo)) {
+      if (el.label || el.medida) {
         const lx = bb.x + bb.w/2, ly = bb.y + bb.h/2;
         if (el.label) { const txt = mk('text', {x:lx,y:ly,'text-anchor':'middle','dominant-baseline':'middle','font-size':'13',fill:'#202124','font-family':'sans-serif','pointer-events':'none'}); txt.textContent = el.label; g.appendChild(txt); }
         if (el.medida) { const md = mk('text', {x:lx,y:ly+16,'text-anchor':'middle','font-size':'10',fill:'#5F6368','pointer-events':'none'}); md.textContent = el.medida; g.appendChild(md); }
@@ -373,6 +622,9 @@ function crearEditorPlanos(containerId, colorTema) {
   function addEl(tipo) {
     const els = plantas[plantaActiva].elementos;
     const id = 'e' + (idCounter++);
+    // Cascada corta: cada forma nueva sale un poco corrida de la anterior,
+    // para que no queden perfectamente apiladas y se puedan tomar.
+    const off = (idCounter % 5) * 12;
     if (tipo === 'room') {
       const lbl = prompt('Nombre de la habitación:', 'Habitación') || 'Habitación';
       const med = prompt('Medida (opcional, ej: 3.0 x 4.0 m):', '') || '';
@@ -381,20 +633,21 @@ function crearEditorPlanos(containerId, colorTema) {
       els.push({ id, tipo, x:70, y:70, w:100, h:100, label:'', medida:'', rot:0 });
     } else if (tipo === 'semi') {
       els.push({ id, tipo, x:70, y:80, w:120, h:60, label:'', medida:'', rot:0 });
-    } else if (tipo === 'wall') {
-      els.push({ id, tipo, x:60, y:60, w:120, h:10, rot:0 });
-    } else if (tipo === 'counter') {
-      els.push({ id, tipo, x:70, y:70, w:130, h:40, label:'', medida:'', rot:0 });
-    } else if (tipo === 'toilet') {
-      els.push({ id, tipo, x:90, y:90, w:50, h:70, rot:0 });
     } else if (tipo === 'erase') {
-      els.push({ id, tipo, x:80, y:80, w:90, h:60, rot:0 });
+      els.push({ id, tipo, x:80+off, y:80, w:90, h:60, rot:0 });
     } else if (tipo === 'stairs') {
-      els.push({ id, tipo, x:80, y:80, w:60, h:100, label:'', medida:'', rot:0 });
+      els.push({ id, tipo, x:80+off, y:80, w:60, h:100, label:'', medida:'', rot:0 });
     } else if (tipo === 'door') {
-      els.push({ id, tipo, x:100, y:100, w:30, h:30, rot:0 });
+      els.push({ id, tipo, x:100+off, y:100, w:30, h:30, rot:0 });
     } else if (tipo === 'window') {
-      els.push({ id, tipo, x:100, y:100, w:40, h:8, rot:0 });
+      els.push({ id, tipo, x:100+off, y:100, w:40, h:8, rot:0 });
+    } else {
+      // Cualquier forma del CATÁLOGO: sale centrada horizontalmente y arriba,
+      // con su tamaño por defecto. Se puede etiquetar con doble toque.
+      const def = PL_POR_CLAVE[tipo];
+      if (!def || !def.dib) { idCounter--; return; }
+      els.push({ id, tipo, x:Math.round((VB_W - def.w) / 2) + off - 24,
+                 y:80 + off, w:def.w, h:def.h, label:'', medida:'', rot:0 });
     }
     seleccion = [id]; render();
   }
@@ -503,7 +756,7 @@ function crearEditorPlanos(containerId, colorTema) {
       const now = Date.now();
       if (now - lastTapTime < 350 && lastTapId === el0.id) {
         const el = el0;
-        if (el && ['room','triangle','semi','stairs','grupo'].includes(el.tipo)) {
+        if (el && el.tipo !== 'door' && el.tipo !== 'window') {
           const n = prompt('Etiqueta (nombre):', el.label || '');
           if (n !== null) el.label = n;
           const m = prompt('Medida (ej: 3.0 x 4.0 m):', el.medida || '');
@@ -570,6 +823,7 @@ function crearEditorPlanos(containerId, colorTema) {
   });
 
   renderTabs();
+  renderCatalogo();
   render();
 
   return {

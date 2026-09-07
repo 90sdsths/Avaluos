@@ -476,6 +476,9 @@
       return true;
     },
     listar(){ return idbAll(STORE_REG); },
+    // Expuesta para que la importación pueda comparar versiones con el mismo
+    // criterio que usa listarTodos() al deduplicar.
+    marcaTiempo: marcaTiempo,
     leerCarpeta: leerCarpeta,
     // Lista combinada: base interna + carpeta (escritorio). Deduplica por id;
     // ante duplicado, gana el más reciente por fecha_guardado.

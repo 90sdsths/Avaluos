@@ -62,6 +62,11 @@
   html.oscuro .pl-btn-merge{color:#C58AF9 !important;border-color:#3E2A5C !important;}
   html.oscuro .pl-btn.on{background:#4A2E10 !important;border-color:#FF8F3C !important;color:#FFD2AC !important;}
   html.oscuro .pl-hint, html.oscuro .pl-calco{color:#9AA0A6 !important;}
+  /* Catálogo de elementos del editor de plantas */
+  html.oscuro .pl-cat{background:#2A2E33 !important;border-color:#3C4043 !important;color:#B8BCC2 !important;}
+  html.oscuro .pl-cat.on{background:#4A2E10 !important;border-color:#FF8F3C !important;color:#FFD2AC !important;}
+  html.oscuro .pl-items{background:#22262B !important;border-color:#3C4043 !important;}
+  html.oscuro .pl-item{background:#2A2E33 !important;border-color:#3C4043 !important;color:#E8EAED !important;}
   html.oscuro .pl-size{background:#22262B !important;border-color:#3C4043 !important;color:#B8BCC2 !important;}
   /* El lienzo de plantas se deja BLANCO a propósito: el dibujo es a trazo negro
      y el borrador de área es blanco opaco. Invertirlo rompería el borrador. */

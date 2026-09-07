@@ -55,11 +55,14 @@
 </header>
 <div class="container">
   <button class="btn-import" id="btnImport">📥 Importar registro (Db.json) desde OneDrive/archivos</button>
+  <button class="btn-import" id="btnImportCarpeta" style="margin-top:6px">📂 Importar una carpeta entera</button>
   <button class="btn-folder-rd" id="btnFolderRd">🔄 Leer carpeta de OneDrive (computador)</button>
   <button class="btn-folder-rd" id="btnMaestro" style="margin-top:6px">🗺️ Generar mapa maestro (mis trabajos en el mapa)</button>
   <button class="btn-folder-rd" id="btnEco" style="margin-top:6px">🔗 Exportar ecosistema (QGIS + Excel/DBeaver + fotos)</button>
   <div class="aviso-carpeta" id="avisoCarpeta" style="display:none">💡 En el computador puedes elegir la carpeta de OneDrive para que se listen automáticamente todos los registros guardados ahí.</div>
   <input type="file" id="fileImport" accept=".json,application/json" multiple style="display:none">
+  <input type="file" id="carpetaImport" webkitdirectory multiple style="display:none">
+  <div id="informeImport" style="display:none"></div>
   <div class="filtros">
     <div class="filtro active" data-f="todos" onclick="filtrar('todos',this)">Todos</div>
     <div class="filtro" data-f="URBANO" onclick="filtrar('URBANO',this)">Urbanos</div>
@@ -233,6 +236,7 @@ async function borrar(id){
 
 // ── Importar uno o varios Db.json (desde OneDrive/FolderSync o cualquier carpeta) ──
 document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('fileImport').click());
+document.getElementById('btnImportCarpeta').addEventListener('click',()=>document.getElementById('carpetaImport').click());
 // Si venimos del asistente de nuevo dispositivo, abrir el selector de una vez
 if(new URLSearchParams(location.search).get('importar')==='1'){
   setTimeout(()=>{ document.getElementById('fileImport').click(); }, 600);
@@ -250,31 +254,135 @@ document.getElementById('btnMaestro').addEventListener('click',async()=>{
     setTimeout(()=>{ btn.textContent='🗺️ Generar mapa maestro (mis trabajos en el mapa)'; },2500);
   }
 });
-document.getElementById('fileImport').addEventListener('change',async e=>{
-  const files=[...e.target.files];
-  if(!files.length)return;
-  let ok=0,err=0,act=0;
-  for(const f of files){
-    try{
-      const txt=await f.text();
-      const reg=JSON.parse(txt);
-      if(!reg.tipo||(reg.tipo!=='URBANO'&&reg.tipo!=='RURAL')){err++;continue;}
-      // conservar el id si lo trae (para que sea el MISMO registro y no un duplicado)
-      if(!reg.id) reg.id='avaluo_'+Date.now()+'_'+Math.floor(Math.random()*1000);
-      // si ya existe uno con ese id, lo actualizamos
-      const existe=registros.find(x=>x.id===reg.id);
-      if(existe)act++; else ok++;
-      await AvaluosStorage.guardarImportado(reg);
-    }catch(e){err++;}
+// ── Importación con regla de "la versión más completa" ───────────────────
+// Un mismo avalúo puede llegar en varias copias (OneDrive/FolderSync crean
+// "archivo (1).json", "(2)"...). Todas comparten el id, así que en vez de
+// dejar que gane la última leída, se elige la que MÁS datos trae; a igualdad
+// de datos, la más reciente por fecha_guardado. La misma comparación se hace
+// contra el registro ya guardado, para no reemplazar uno bueno por una copia
+// recortada.
+
+// Cuenta los valores realmente llenos de un registro, entrando en objetos y listas.
+function contarDatos(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(Array.isArray(v)){ let s=0; for(const x of v) s+=contarDatos(x); return s; }
+  if(typeof v==='object'){
+    let s=0;
+    for(const k in v){
+      if(k==='fecha_guardado'||k==='autoguardado') continue; // cambian siempre
+      s+=contarDatos(v[k]);
+    }
+    return s;
   }
-  e.target.value='';
-  let msg=[];
-  if(ok)msg.push(ok+' nuevo(s)');
-  if(act)msg.push(act+' actualizado(s)');
-  if(err)msg.push(err+' con error');
-  alert('Importación: '+(msg.join(', ')||'sin cambios')+'.');
-  cargar();
-});
+  return 1;
+}
+function marcaDe(r){
+  try{ return (AvaluosStorage.marcaTiempo && AvaluosStorage.marcaTiempo(r)) || 0; }catch(e){ return 0; }
+}
+function ficha(reg,nombre,bytes){
+  return { reg:reg, nombre:nombre||'(ya guardado)', bytes:bytes||0, datos:contarDatos(reg) };
+}
+// ¿la ficha a debe imponerse sobre la b?
+function leGana(a,b){
+  if(a.datos!==b.datos) return a.datos>b.datos;
+  return marcaDe(a.reg)>marcaDe(b.reg);
+}
+
+async function importarArchivos(files, origen){
+  const informe=document.getElementById('informeImport');
+  informe.style.display='block';
+  informe.innerHTML='<div style="padding:12px 2px">⏳ Leyendo '+files.length+' archivo(s)…</div>';
+
+  const candidatos=[]; let ilegibles=0, ajenos=0, omitidos=0;
+  for(const f of files){
+    if(!/\.json$/i.test(f.name)){ omitidos++; continue; }   // en una carpeta vienen kml, fotos…
+    let reg=null;
+    try{ reg=JSON.parse(await f.text()); }catch(e){ ilegibles++; continue; }
+    if(!reg || (reg.tipo!=='URBANO' && reg.tipo!=='RURAL')){ ajenos++; continue; }
+    if(!reg.id) reg.id='avaluo_'+Date.now()+'_'+Math.floor(Math.random()*1000);
+    candidatos.push(ficha(reg,f.name,f.size));
+  }
+
+  // 1) entre los archivos elegidos, la mejor versión de cada avalúo
+  const mejores={}, descartados={};
+  for(const c of candidatos){
+    const prev=mejores[c.reg.id];
+    if(!prev){ mejores[c.reg.id]=c; continue; }
+    const gana=leGana(c,prev);
+    (descartados[c.reg.id]=descartados[c.reg.id]||[]).push(gana?prev:c);
+    if(gana) mejores[c.reg.id]=c;
+  }
+
+  // 2) contra lo que ya está guardado
+  let nuevos=0, actualizados=0, conservados=0;
+  const filas=[];
+  for(const id in mejores){
+    const c=mejores[id];
+    let actual=null;
+    try{ actual=await AvaluosStorage.obtener(id); }catch(e){}
+    let estado;
+    if(actual && !leGana(c, ficha(actual))){
+      conservados++; estado='sin cambios';
+    }else{
+      if(actual){ actualizados++; estado='actualizado'; } else { nuevos++; estado='nuevo'; }
+      await AvaluosStorage.guardarImportado(c.reg);
+    }
+    filas.push({ c:c, estado:estado, descartes:descartados[id]||[], actual:actual });
+  }
+
+  informe.innerHTML=pintarInforme({
+    origen:origen, nuevos:nuevos, actualizados:actualizados, conservados:conservados,
+    ilegibles:ilegibles, ajenos:ajenos, omitidos:omitidos, filas:filas
+  });
+  informe.scrollIntoView({behavior:'smooth', block:'nearest'});
+  await cargar();
+}
+
+function pintarInforme(d){
+  const esc=s=>String(s).replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
+  const num=n=>Number(n).toLocaleString('es');
+  const resumen=[];
+  if(d.nuevos) resumen.push(d.nuevos+' nuevo(s)');
+  if(d.actualizados) resumen.push(d.actualizados+' actualizado(s)');
+  if(d.conservados) resumen.push(d.conservados+' sin cambios (ya tenías una versión igual o mejor)');
+  if(d.ilegibles) resumen.push(d.ilegibles+' ilegible(s)');
+  if(d.ajenos) resumen.push(d.ajenos+' que no son avalúos');
+  if(d.omitidos) resumen.push(d.omitidos+' archivo(s) que no son .json');
+
+  let h='<div style="border:1px solid var(--gray,#bbb);border-radius:12px;padding:14px;margin:10px 0;font-size:14px">';
+  h+='<div style="font-weight:700;margin-bottom:6px">Importación'+(d.origen==='carpeta'?' de carpeta':'')+'</div>';
+  h+='<div style="margin-bottom:6px">'+(resumen.join(' · ')||'Sin cambios')+'</div>';
+
+  d.filas.forEach(f=>{
+    const r=f.c.reg;
+    const titulo=[r.municipio, r.contratante].filter(Boolean).join(' · ')||r.id;
+    h+='<div style="border-top:1px solid var(--gray,#ddd);padding-top:8px;margin-top:8px;font-size:13px">';
+    h+='<div><b>'+esc(titulo)+'</b> — '+esc(f.estado)+'</div>';
+    h+='<div style="opacity:.75">Se conserva: '+esc(f.c.nombre)+' · '+num(f.c.datos)+' campos con datos';
+    if(f.c.bytes) h+=' · '+num(f.c.bytes)+' bytes';
+    h+='</div>';
+    if(f.descartes.length){
+      h+='<div style="opacity:.75">Descartadas: '+f.descartes.map(x=>esc(x.nombre)+' ('+num(x.datos)+' campos)').join(', ')+'</div>';
+    }
+    if(f.estado==='sin cambios' && f.actual){
+      h+='<div style="opacity:.75">Lo ya guardado trae '+num(contarDatos(f.actual))+' campos; el archivo, '+num(f.c.datos)+'.</div>';
+    }
+    h+='</div>';
+  });
+
+  h+='</div>';
+  return h;
+}
+
+async function alElegirArchivos(e, origen){
+  const files=[...e.target.files];
+  if(!files.length) return;
+  try{ await importarArchivos(files, origen); }
+  finally{ e.target.value=''; }
+}
+
+document.getElementById('fileImport').addEventListener('change',e=>alElegirArchivos(e,'archivos'));
+document.getElementById('carpetaImport').addEventListener('change',e=>alElegirArchivos(e,'carpeta'));
 
 // ===== EXPORTACIÓN DEL ECOSISTEMA (QGIS + Excel/DBeaver + fotos) =====
 // Todo se une por el 'id' del avalúo (clave que relaciona las 3 plataformas).
