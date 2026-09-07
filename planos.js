@@ -41,16 +41,25 @@ function crearEditorPlanos(containerId, colorTema) {
       <button type="button" class="pl-btn pl-btn-merge" data-act="merge">⧉ Fusionar</button>
       <button type="button" class="pl-btn pl-btn-del" data-act="delete">🗑 Borrar</button>
     </div>
+    <div class="pl-size" id="${containerId}_sizebar">
+      <span class="pl-size-lbl">Tamaño:</span>
+      <button type="button" class="pl-btn pl-btn-sz" data-size="w-">↔ −</button>
+      <button type="button" class="pl-btn pl-btn-sz" data-size="w+">↔ +</button>
+      <button type="button" class="pl-btn pl-btn-sz" data-size="h-">↕ −</button>
+      <button type="button" class="pl-btn pl-btn-sz" data-size="h+">↕ +</button>
+      <button type="button" class="pl-btn pl-btn-sz" data-act="front">⬆ Al frente</button>
+    </div>
     <label class="pl-calco"><input type="checkbox" id="${containerId}_calco" checked> Mostrar calco del piso anterior</label>
     <div class="pl-canvas-wrap">
       <svg id="${containerId}_svg" viewBox="0 0 ${VB_W} ${VB_H}" class="pl-svg" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
-    <div class="pl-hint">Toca para seleccionar · arrastra para mover · esquina ● redimensiona · doble toque para renombrar/medida · <b>Fusionar</b>: toca dos formas y pulsa Fusionar (se mueven juntas y conservan rotación)</div>
+    <div class="pl-hint">Toca para seleccionar (gana la forma más pequeña bajo el dedo) · arrastra para mover · esquina ✛ redimensiona, incluso rotada · o usa <b>Tamaño ↔ ↕</b> si la forma es delgada · doble toque para renombrar/medida · <b>Fusionar</b>: toca dos formas y pulsa Fusionar</div>
   `;
 
   const svg = document.getElementById(containerId + '_svg');
   const tabsEl = document.getElementById(containerId + '_tabs');
   const calcoChk = document.getElementById(containerId + '_calco');
+  const sizeBar = document.getElementById(containerId + '_sizebar');
   calcoChk.addEventListener('change', render);
 
   if (!document.getElementById('pl-styles')) {
@@ -68,6 +77,10 @@ function crearEditorPlanos(containerId, colorTema) {
       .pl-btn-del{color:#D93025;border-color:#F3C0BB;}
       .pl-btn-rot{color:#188038;border-color:#B7DFC2;}
       .pl-btn-merge{color:#7B3FF2;border-color:#D2BEF7;}
+      .pl-size{display:none;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding:6px;border:1.5px dashed #DADCE0;border-radius:8px;background:#FAFBFC;}
+      .pl-size.show{display:flex;}
+      .pl-size-lbl{font-size:11px;color:#5F6368;padding:0 2px;}
+      .pl-btn-sz{flex:0 1 auto;padding:8px 10px;font-size:13px;}
       .pl-calco{display:flex;align-items:center;gap:6px;font-size:11px;color:#5F6368;margin-bottom:8px;cursor:pointer;}
       .pl-canvas-wrap{border:1.5px solid #DADCE0;border-radius:8px;overflow:hidden;background:#fff;}
       .pl-svg{display:block;width:100%;height:auto;touch-action:none;background-image:linear-gradient(#EEF0F2 1px,transparent 1px),linear-gradient(90deg,#EEF0F2 1px,transparent 1px);background-size:20px 20px;}
@@ -206,6 +219,87 @@ function crearEditorPlanos(containerId, colorTema) {
     return nodes;
   }
 
+  // ---- Geometría con rotación -------------------------------------------
+  // El bbox del modelo NO está rotado, pero las formas SÍ se dibujan con
+  // rotate(). Sin estas funciones el punto de redimensión quedaba en la
+  // esquina sin rotar (lejos de la figura visible) y el arrastre calculaba
+  // ancho/alto sobre los ejes de la pantalla en vez de los de la forma.
+  // Ese era el problema del mesón: apenas se rota, deja de poder ajustarse.
+  function rotPt(p, c, deg) {
+    if (!deg) return { x: p.x, y: p.y };
+    const r = deg * Math.PI / 180, s = Math.sin(r), co = Math.cos(r);
+    const dx = p.x - c.x, dy = p.y - c.y;
+    return { x: c.x + dx * co - dy * s, y: c.y + dx * s + dy * co };
+  }
+  // Un grupo no lleva rotación propia: la llevan sus hijos.
+  function rotDe(el) { return (el && el.tipo === 'grupo') ? 0 : ((el && el.rot) || 0); }
+  function centroDe(bb) { return { x: bb.x + bb.w / 2, y: bb.y + bb.h / 2 }; }
+
+  // Elemento bajo un punto. Elige el MÁS PEQUEÑO de los que lo contienen, para
+  // que un mesón dentro de una habitación se pueda seleccionar aunque la
+  // habitación se haya dibujado después. Respeta la rotación de cada forma.
+  function elEnPunto(p) {
+    const els = plantas[plantaActiva].elementos;
+    const pad = 8;
+    let mejor = null, mejorArea = Infinity;
+    for (let i = 0; i < els.length; i++) {
+      const el = els[i], bb = bbox(el);
+      const q = rotPt(p, centroDe(bb), -rotDe(el));   // al marco propio de la forma
+      if (q.x >= bb.x - pad && q.x <= bb.x + bb.w + pad &&
+          q.y >= bb.y - pad && q.y <= bb.y + bb.h + pad) {
+        const area = (bb.w + pad * 2) * (bb.h + pad * 2);
+        if (area <= mejorArea) { mejorArea = area; mejor = el; }  // empate: gana el de encima
+      }
+    }
+    return mejor;
+  }
+
+  // Posición VISIBLE del punto de redimensión (esquina inferior derecha rotada).
+  function puntoHandle(el) {
+    const bb = bbox(el);
+    return rotPt({ x: bb.x + bb.w, y: bb.y + bb.h }, centroDe(bb), rotDe(el));
+  }
+
+  // Esquina superior izquierda VISIBLE (ya rotada) de una forma.
+  function anclaDe(el) {
+    const bb = bbox(el);
+    return rotPt({ x: bb.x, y: bb.y }, centroDe(bb), rotDe(el));
+  }
+
+  // Al cambiar de tamaño una forma rotada, el centro de rotación se desplaza y
+  // la figura "salta" en pantalla. Se compensa moviéndola para que su esquina
+  // superior izquierda VISIBLE vuelva a quedar donde estaba.
+  function anclarEn(el, ancla, deg) {
+    if (!deg) return;
+    const ahora = anclaDe(el);
+    moverElemento(el, ancla.x - ahora.x, ancla.y - ahora.y);
+  }
+
+  // Escala una forma (o grupo) por factores, anclando la esquina visible.
+  function escalar(el, fw, fh) {
+    const deg = rotDe(el), ancla = anclaDe(el), bb0 = bbox(el);
+    const nw = Math.max(20, bb0.w * fw), nh = Math.max(10, bb0.h * fh);
+    aplicarTamano(el, bb0, nw, nh);
+    anclarEn(el, ancla, deg);
+  }
+
+  // Lleva la forma (o cada hijo del grupo) al tamaño nw x nh dentro de bb0.
+  function aplicarTamano(el, bb0, nw, nh) {
+    const fx = nw / (bb0.w || 1), fy = nh / (bb0.h || 1);
+    if (el.tipo === 'grupo') {
+      el.hijos.forEach(h => {
+        h.x = bb0.x + (h.x - bb0.x) * fx;
+        h.y = bb0.y + (h.y - bb0.y) * fy;
+        if (h.w) h.w = h.w * fx;
+        if (h.h) h.h = h.h * fy;
+      });
+    } else {
+      if (el.w) el.w = nw;
+      if (el.h) el.h = nh;
+    }
+  }
+
+
   function bbox(el) {
     if (el.tipo === 'grupo') {
       let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
@@ -237,9 +331,10 @@ function crearEditorPlanos(containerId, colorTema) {
       const sel = seleccion.includes(el.id);
       const bb = bbox(el);
 
-      // ZONA DE TOQUE invisible (más amplia, sobre todo para puerta/ventana)
-      const pad = 10;
-      g.appendChild(mk('rect', {x:bb.x-pad,y:bb.y-pad,width:bb.w+pad*2,height:bb.h+pad*2,fill:'transparent',stroke:'none'}));
+      // Ya NO se dibuja un rectángulo de toque invisible por elemento: tapaba
+      // el punto de redimensión de las formas dibujadas antes (por eso el
+      // mesón bajo una habitación no se dejaba ajustar). La detección del
+      // toque la hace elEnPunto() por geometría, no por el DOM.
 
       if (el.tipo === 'grupo') {
         el.hijos.forEach(h => dibujarForma(h,{sel}).forEach(n=>g.appendChild(n)));
@@ -254,12 +349,25 @@ function crearEditorPlanos(containerId, colorTema) {
         if (el.medida) { const md = mk('text', {x:lx,y:ly+16,'text-anchor':'middle','font-size':'10',fill:'#5F6368','pointer-events':'none'}); md.textContent = el.medida; g.appendChild(md); }
       }
 
-      // handle de redimensionado (todas menos puerta/ventana)
-      if (sel && el.tipo !== 'door' && el.tipo !== 'window') {
-        g.appendChild(mk('circle', {cx:bb.x+bb.w,cy:bb.y+bb.h,r:10,fill:SEL,stroke:'#fff','stroke-width':2,'data-handle':'1'}));
-      }
       svg.appendChild(g);
     });
+
+    // CAPA DE HANDLES, siempre al final => siempre por encima de cualquier
+    // forma, sin importar el orden en que se agregaron.
+    const capaH = mk('g', {});
+    els.forEach(el => {
+      if (!seleccion.includes(el.id)) return;
+      if (el.tipo === 'door' || el.tipo === 'window') return;
+      const h = puntoHandle(el);
+      // círculo invisible grande: zona de toque cómoda con el dedo
+      capaH.appendChild(mk('circle', {cx:h.x,cy:h.y,r:22,fill:'transparent',stroke:'none','data-handle':el.id}));
+      capaH.appendChild(mk('circle', {cx:h.x,cy:h.y,r:9,fill:SEL,stroke:'#fff','stroke-width':2.5,'data-handle':el.id,'pointer-events':'none'}));
+      capaH.appendChild(mk('path', {d:`M ${h.x-3.5} ${h.y-0.5} L ${h.x+3.5} ${h.y-0.5} M ${h.x-0.5} ${h.y-3.5} L ${h.x-0.5} ${h.y+3.5}`,stroke:'#fff','stroke-width':1.6,fill:'none','pointer-events':'none'}));
+    });
+    svg.appendChild(capaH);
+
+    // la barra de tamaño solo aparece cuando hay algo seleccionado
+    if (sizeBar) sizeBar.classList.toggle('show', seleccion.length > 0);
   }
 
   function addEl(tipo) {
@@ -329,23 +437,32 @@ function crearEditorPlanos(containerId, colorTema) {
   svg.addEventListener('pointerdown', e => {
     e.preventDefault();
     const p = toVB(e.clientX, e.clientY);
-    if (e.target.dataset && e.target.dataset.handle) {
-      modo = 'resize';
-      const el = elById(seleccion[seleccion.length-1]);
-      if (el) resizeBase = { bb: bbox(el), orig: JSON.parse(JSON.stringify(el)) };
-      svg.setPointerCapture(e.pointerId);
-      return;
+    // 1) ¿tocó un punto de redimensión? (data-handle lleva el id de SU forma)
+    const hid = e.target.dataset && e.target.dataset.handle;
+    if (hid) {
+      const el = elById(hid);
+      if (el) {
+        seleccion = [hid];
+        modo = 'resize';
+        // Se congela el ANCLA (esquina sup. izq. visible) y la rotación durante
+        // todo el gesto: así el ancho/alto se miden siempre desde el mismo punto.
+        resizeBase = { ancla: anclaDe(el), rot: rotDe(el) };
+        try{ svg.setPointerCapture(e.pointerId); }catch(err){}   // algunos navegadores lanzan si el puntero ya se soltó
+        render();
+        return;
+      }
     }
-    const g = gConId(e.target);
-    if (g) {
-      const id = g.dataset.id;
+    // 2) ¿tocó una forma? (la más pequeña bajo el dedo, con su rotación)
+    const el = elEnPunto(p);
+    if (el) {
+      const id = el.id;
       if (!seleccion.includes(id)) {
         if (seleccion.length >= 2) seleccion = [id];
         else seleccion.push(id);
       } else if (seleccion.length > 1) seleccion = [id];
       modo = 'mover';
       offset.x = p.x; offset.y = p.y;
-      svg.setPointerCapture(e.pointerId);
+      try{ svg.setPointerCapture(e.pointerId); }catch(err){}   // algunos navegadores lanzan si el puntero ya se soltó
       render();
     } else { seleccion = []; render(); }
   });
@@ -361,23 +478,16 @@ function crearEditorPlanos(containerId, colorTema) {
       const dy = Math.round((p.y - offset.y)/5)*5;
       if (dx || dy) { moverElemento(el, dx, dy); offset.x += dx; offset.y += dy; render(); }
     } else if (modo === 'resize' && resizeBase) {
-      // Escalado estable: siempre desde la geometría ORIGINAL del gesto
-      const bb = resizeBase.bb, orig = resizeBase.orig;
-      const nw = Math.max(20, p.x - bb.x);
-      const nh = Math.max(10, p.y - bb.y);
-      const fx = nw/(bb.w||1), fy = nh/(bb.h||1);
-      if (el.tipo === 'grupo') {
-        el.hijos.forEach((h,i)=>{
-          const o = orig.hijos[i];
-          h.x = bb.x + (o.x - bb.x)*fx;
-          h.y = bb.y + (o.y - bb.y)*fy;
-          if (o.w) h.w = o.w*fx;
-          if (o.h) h.h = o.h*fy;
-        });
-      } else {
-        if (orig.w) el.w = orig.w*fx;
-        if (orig.h) el.h = orig.h*fy;
-      }
+      // Escalado en el MARCO PROPIO de la forma: se mide el vector ancla→dedo y
+      // se le quita la rotación. Así el mesón (u otra forma rotada) crece a lo
+      // largo de su propio eje y no del eje de la pantalla.
+      const deg = resizeBase.rot, ancla = resizeBase.ancla;
+      const v = rotPt({ x: p.x, y: p.y }, ancla, -deg);
+      const nw = Math.max(20, v.x - ancla.x);
+      const nh = Math.max(10, v.y - ancla.y);
+      const bb0 = bbox(el);
+      aplicarTamano(el, bb0, nw, nh);
+      anclarEn(el, ancla, deg);    // deja fija la esquina superior izquierda visible
       render();
     }
   });
@@ -387,11 +497,12 @@ function crearEditorPlanos(containerId, colorTema) {
 
   let lastTapTime = 0, lastTapId = null;
   svg.addEventListener('pointerup', e => {
-    const g = gConId(e.target);
-    if (g) {
+    if (e.target.dataset && e.target.dataset.handle) return;  // el handle no renombra
+    const el0 = elEnPunto(toVB(e.clientX, e.clientY));
+    if (el0) {
       const now = Date.now();
-      if (now - lastTapTime < 350 && lastTapId === g.dataset.id) {
-        const el = elById(g.dataset.id);
+      if (now - lastTapTime < 350 && lastTapId === el0.id) {
+        const el = el0;
         if (el && ['room','triangle','semi','stairs','grupo'].includes(el.tipo)) {
           const n = prompt('Etiqueta (nombre):', el.label || '');
           if (n !== null) el.label = n;
@@ -400,14 +511,37 @@ function crearEditorPlanos(containerId, colorTema) {
           render();
         }
       }
-      lastTapTime = now; lastTapId = g.dataset.id;
+      lastTapTime = now; lastTapId = el0.id;
     }
+  });
+
+  // Botones de tamaño: alternativa al arrastre para formas delgadas (mesón,
+  // muro, escaleras), donde acertarle al punto con el dedo es incómodo.
+  // Cada toque cambia un 12% el ancho o el alto de lo seleccionado.
+  cont.querySelectorAll('[data-size]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!seleccion.length) { alert('Selecciona una forma primero'); return; }
+      const s = btn.dataset.size;
+      const fw = s === 'w+' ? 1.12 : (s === 'w-' ? 1/1.12 : 1);
+      const fh = s === 'h+' ? 1.12 : (s === 'h-' ? 1/1.12 : 1);
+      seleccion.forEach(id => { const el = elById(id); if (el) escalar(el, fw, fh); });
+      render();
+    });
   });
 
   cont.querySelectorAll('.pl-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const act = btn.dataset.act;
-      if (act === 'delete') {
+      if (!act) return;                       // los de tamaño ya tienen su handler
+      if (act === 'front') {
+        if (!seleccion.length) { alert('Selecciona una forma primero'); return; }
+        const els = plantas[plantaActiva].elementos;
+        seleccion.forEach(id => {
+          const i = els.findIndex(e => e.id === id);
+          if (i >= 0) els.push(els.splice(i, 1)[0]);   // al final = se dibuja encima
+        });
+        render();
+      } else if (act === 'delete') {
         if (!seleccion.length) { alert('Selecciona un elemento primero'); return; }
         const els = plantas[plantaActiva].elementos;
         seleccion.forEach(id => { const i = els.findIndex(e=>e.id===id); if(i>=0) els.splice(i,1); });

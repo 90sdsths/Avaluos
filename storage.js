@@ -50,6 +50,51 @@
     });});
   }
 
+  // ============================================================
+  // LIBRO DE NOMBRES (localStorage) — protege contra SOBREESCRITURA
+  // ------------------------------------------------------------
+  // El uniquify solo miraba IndexedDB. Si se limpia el caché del navegador o se
+  // usa el otro celular, un avalúo NUEVO podía reusar un nombre_base ya vivo en
+  // OneDrive y pisar el JSON del avalúo anterior. Este libro sobrevive a que se
+  // borre IndexedDB y guarda qué nombre pertenece a qué id.
+  const LEDGER_KEY = 'avaluos_nb_ledger';
+  function ledgerLeer(){
+    try{ return JSON.parse(localStorage.getItem(LEDGER_KEY) || '{}') || {}; }catch(e){ return {}; }
+  }
+  function ledgerGuardar(l){
+    try{ localStorage.setItem(LEDGER_KEY, JSON.stringify(l)); }catch(e){}
+  }
+  function ledgerPut(nombreBase, id){
+    if(!nombreBase || !id) return;
+    const l = ledgerLeer();
+    // un id solo puede tener un nombre vigente: se retiran los anteriores
+    Object.keys(l).forEach(k=>{ if(l[k]===id && k!==nombreBase.toLowerCase()) delete l[k]; });
+    l[nombreBase.toLowerCase()] = id;
+    ledgerGuardar(l);
+  }
+  function ledgerNombreDe(id){
+    const l = ledgerLeer();
+    const k = Object.keys(l).find(k=>l[k]===id);
+    return k || null;
+  }
+  function ledgerQuitarId(id){
+    const l = ledgerLeer();
+    Object.keys(l).forEach(k=>{ if(l[k]===id) delete l[k]; });
+    ledgerGuardar(l);
+  }
+
+  // Huella del contenido SIN la fecha de guardado (que cambia siempre).
+  // Sirve para no volver a descargar un archivo idéntico al ya descargado:
+  // esa re-descarga es la que genera "archivo (1).json", "archivo (2).json".
+  function huella(reg){
+    const c = {}; for(const k in reg) if(k!=='fecha_guardado' && k!=='autoguardado') c[k]=reg[k];
+    const s = JSON.stringify(c);
+    let h = 5381;
+    for(let i=0;i<s.length;i++){ h = (((h*33) ^ s.charCodeAt(i)) >>> 0); }
+    return s.length + '-' + h.toString(36);
+  }
+  const DL_KEY = id => 'avaluos_dl:' + id;
+
   // ---------- Carpeta destino (File System Access) ----------
   const FSA = ('showDirectoryPicker' in global);
 
@@ -70,6 +115,65 @@
     return false;
   }
 
+  // Escaneo de la carpeta: [{nombre_archivo, nombre_base, id}]. Se cachea unos
+  // segundos porque guardar() lo consulta dos veces (nombre único + limpieza).
+  let _cacheCarpeta = null, _cacheCarpetaT = 0;
+  async function escanearCarpeta(forzar){
+    if(!FSA) return [];
+    if(!forzar && _cacheCarpeta && (Date.now()-_cacheCarpetaT) < 20000) return _cacheCarpeta;
+    try{
+      const handle=await idbGet(STORE_CFG,'dirHandle');
+      if(!handle) return [];
+      if(!(await verificarPermiso(handle))) return [];
+      const out=[];
+      for await (const entry of handle.values()){
+        if(entry.kind!=='file') continue;
+        const n=entry.name;
+        if(!n.toLowerCase().endsWith('.json')) continue;
+        if(n.charAt(0)==='_') continue;           // _MapaMaestro.json y similares
+        const base=n.replace(/_Db\.json$/i,'').replace(/\.json$/i,'');
+        let id=null;
+        try{ const reg=JSON.parse(await (await entry.getFile()).text()); id=reg&&reg.id||null; }catch(e){}
+        out.push({nombre_archivo:n, nombre_base:base, id:id});
+      }
+      _cacheCarpeta=out; _cacheCarpetaT=Date.now();
+      return out;
+    }catch(e){ console.error('FSA scan',e); return []; }
+  }
+  function invalidarCacheCarpeta(){ _cacheCarpeta=null; _cacheCarpetaT=0; }
+
+  // Nombres_base ya ocupados por avalúos DISTINTOS a idPropio.
+  // Une tres fuentes para que ninguna sola pueda fallar en silencio:
+  // la base local, el libro de nombres y los archivos reales de la carpeta.
+  async function nombresTomados(idPropio){
+    const set=new Set();
+    try{
+      const todos=await idbAll(STORE_REG);
+      todos.forEach(r=>{ if(r.id!==idPropio && r.nombre_base) set.add(String(r.nombre_base).toLowerCase()); });
+    }catch(e){}
+    try{
+      const l=ledgerLeer();
+      Object.keys(l).forEach(k=>{ if(l[k]!==idPropio) set.add(k); });
+    }catch(e){}
+    try{
+      const arch=await escanearCarpeta(false);
+      arch.forEach(a=>{ if(a.id!==idPropio) set.add(String(a.nombre_base).toLowerCase()); });
+    }catch(e){}
+    return set;
+  }
+
+  // Devuelve un nombre_base libre. Si este mismo avalúo ya tenía un nombre con
+  // sufijo (_2, _3) y su raíz no cambió, conserva el suyo (regla de edición).
+  async function nombreUnico(base, idPropio, nombrePrevio){
+    const raiz = base.replace(/_(\d+)$/,'');
+    let candidato = base;
+    if(nombrePrevio && nombrePrevio.replace(/_(\d+)$/,'') === raiz) candidato = nombrePrevio;
+    const tomados = await nombresTomados(idPropio);
+    let n = 2;
+    while(tomados.has(candidato.toLowerCase())){ candidato = raiz + '_' + n; n++; }
+    return candidato;
+  }
+
   async function escribirEnCarpeta(nombre, contenido, idRegistro){
     if(!FSA) return false;
     try{
@@ -79,25 +183,18 @@
       // Limpiar versiones viejas del MISMO registro con nombre distinto
       if(idRegistro){
         try{
-          for await (const entry of handle.values()){
-            if(entry.kind!=='file') continue;
-            if(entry.name===nombre) continue;
-            if(!entry.name.toLowerCase().endsWith('.json')) continue;
-            try{
-              const f=await entry.getFile();
-              const txt=await f.text();
-              const reg=JSON.parse(txt);
-              if(reg && reg.id===idRegistro){
-                // es el mismo registro con otro nombre: borrar el viejo
-                await handle.removeEntry(entry.name);
-              }
-            }catch(e){}
+          const arch=await escanearCarpeta(false);
+          for(const a of arch){
+            if(a.nombre_archivo===nombre) continue;
+            if(a.id!==idRegistro) continue;
+            try{ await handle.removeEntry(a.nombre_archivo); }catch(e){}
           }
         }catch(e){}
       }
       const fh=await handle.getFileHandle(nombre,{create:true});
       const w=await fh.createWritable();
       await w.write(contenido); await w.close();
+      invalidarCacheCarpeta();
       return true;
     }catch(e){ console.error('FSA write',e); return false; }
   }
@@ -125,6 +222,8 @@
             // Guardar en IndexedDB para que 'obtener(id)' lo encuentre al editar,
             // aunque la base interna se haya borrado en este equipo.
             try{ await idbPut(STORE_REG, reg); }catch(e){}
+            // registrar su nombre para que un avalúo nuevo no lo reuse
+            try{ if(reg.nombre_base) ledgerPut(reg.nombre_base, reg.id); }catch(e){}
             registros.push(reg);
           }
         }catch(e){}
@@ -298,27 +397,26 @@
       registro.fecha_guardado = new Date().toLocaleString('es-CO');
 
       // GARANTIZAR nombre_base ÚNICO entre avalúos DISTINTOS (ids distintos).
-      // Caso: dos visitas el mismo día, misma ciudad, misma persona → mismo
+      // Caso: dos predios del mismo dueño, misma vereda y mismo día → mismo
       // nombre_base → antes se sobre-escribían. Ahora el segundo recibe _2.
       // Reguardar el MISMO avalúo (mismo id) conserva su nombre (regla de edición).
+      let renombrado=null;
       try{
         if(registro.nombre_base){
-          const todos=await idbAll(STORE_REG);
-          const raiz=registro.nombre_base.replace(/_(\d+)$/,'');
-          let candidato=registro.nombre_base;
-          // si este avalúo ya existía con un nombre (posiblemente con sufijo), conservarlo
-          const propio=todos.find(r=>r.id===registro.id);
-          if(propio && propio.nombre_base && propio.nombre_base.replace(/_(\d+)$/,'')===raiz){
-            candidato=propio.nombre_base;
-          }
-          let n=2;
-          while(todos.some(r=>r.id!==registro.id && (r.nombre_base||'')===candidato)){
-            candidato=raiz+'_'+n; n++;
-          }
+          const propio=await idbGet(STORE_REG, registro.id);
+          const nombrePrevio=(propio && propio.nombre_base) ? propio.nombre_base : ledgerNombreDe(registro.id);
+          const candidato=await nombreUnico(registro.nombre_base, registro.id, nombrePrevio);
           if(candidato!==registro.nombre_base){
             registro.nombre_base=candidato;
             registro.nombre_archivo=candidato+'_Db.json';
           }
+          // Si el archivo cambió de nombre respecto a la vez anterior, hay que
+          // avisar: en PC el viejo se borra solo, pero en el celular queda
+          // huérfano en OneDrive (el navegador no puede borrarlo).
+          if(nombrePrevio && nombrePrevio.toLowerCase()!==registro.nombre_base.toLowerCase()){
+            renombrado={de:nombrePrevio+'_Db.json', a:registro.nombre_base+'_Db.json'};
+          }
+          ledgerPut(registro.nombre_base, registro.id);
         }
       }catch(e){}
 
@@ -331,17 +429,31 @@
 
       const contenido=JSON.stringify(registro,null,2);
       const nombre=registro.nombre_archivo || (registro.id+'.json');
+      const marca=nombre+'|'+huella(registro);
 
-      let metodo='local';
-      // 1. intentar carpeta directa (escritorio)
+      // 1. intentar carpeta directa (escritorio): siempre escribe, sobre el
+      //    mismo archivo, así que nunca duplica.
       if(FSA && await this.tieneCarpeta()){
-        if(await escribirEnCarpeta(nombre, contenido, registro.id)){ return {ok:true, metodo:'carpeta'}; }
+        if(await escribirEnCarpeta(nombre, contenido, registro.id)){
+          try{ localStorage.setItem(DL_KEY(registro.id), marca); }catch(e){}
+          return {ok:true, metodo:'carpeta', renombrado:renombrado, archivo:nombre};
+        }
       }
       // 2. en autoguardado silencioso no descargamos
-      if(opts.silencioso){ return {ok:true, metodo:'local'}; }
-      // 3. descargar (móvil o escritorio sin carpeta)
+      if(opts.silencioso){ return {ok:true, metodo:'local', renombrado:renombrado, archivo:nombre}; }
+
+      // 3. descargar (móvil o escritorio sin carpeta).
+      //    EVITAR DUPLICADOS: si el contenido y el nombre son idénticos a la
+      //    última descarga de este mismo avalúo, no se vuelve a descargar.
+      //    (Chrome en Android no sobreescribe: crea "archivo (1).json".)
+      let previa=null;
+      try{ previa=localStorage.getItem(DL_KEY(registro.id)); }catch(e){}
+      if(previa===marca && !opts.forzarDescarga){
+        return {ok:true, metodo:'sin-cambios', renombrado:renombrado, archivo:nombre};
+      }
       descargar(nombre, contenido);
-      return {ok:true, metodo:'descarga'};
+      try{ localStorage.setItem(DL_KEY(registro.id), marca); }catch(e){}
+      return {ok:true, metodo:'descarga', renombrado:renombrado, archivo:nombre};
     },
 
     // Guarda solo la copia local de forma inmediata (para beforeunload)
@@ -359,6 +471,8 @@
       registro.id = registro.id || ('avaluo_'+Date.now());
       if(!registro.fecha_guardado) registro.fecha_guardado = new Date().toLocaleString('es-CO');
       await idbPut(STORE_REG, registro);
+      // un registro importado ya OCUPA su nombre: que no lo reuse un avalúo nuevo
+      try{ if(registro.nombre_base) ledgerPut(registro.nombre_base, registro.id); }catch(e){}
       return true;
     },
     listar(){ return idbAll(STORE_REG); },
@@ -415,6 +529,9 @@
     },
     async eliminar(id){
       await idbDel(STORE_REG, id);
+      // liberar su nombre y olvidar la última descarga
+      try{ ledgerQuitarId(id); localStorage.removeItem(DL_KEY(id)); }catch(e){}
+      invalidarCacheCarpeta();
       // quitar también del mapa maestro
       try{
         let lista=await leerMaestro();

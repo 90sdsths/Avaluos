@@ -28,6 +28,46 @@
   html.oscuro .card{background:#181B1F !important;border-color:#3C4043 !important;}
   html.oscuro .card-header{background:#22262B !important;border-color:#3C4043 !important;}
   html.oscuro .chip{background:#2A2E33 !important;color:#B8BCC2 !important;border-color:#3C4043 !important;}
+  /* --- ESTADO SELECCIONADO de los chips en modo oscuro ---
+     Las reglas .chip.active de urbano/rural NO llevan !important, así que la
+     regla html.oscuro .chip de arriba las pisaba y el chip seleccionado se veía
+     igual que uno sin seleccionar. Aquí se restituye el estado con !important. */
+  html.oscuro .chip.active{
+    background:#1B3A5C !important; border-color:#8AB4F8 !important;
+    color:#D2E3FC !important; font-weight:600 !important;
+    box-shadow:inset 0 0 0 1px #8AB4F8 !important;
+  }
+  html.oscuro .chip.active-blue{
+    background:#1B3A5C !important; border-color:#8AB4F8 !important;
+    color:#D2E3FC !important; font-weight:600 !important;
+    box-shadow:inset 0 0 0 1px #8AB4F8 !important;
+  }
+  /* rural usa verde para .chip.active: se distingue con tono verde claro */
+  html.oscuro .rural-page .chip.active{
+    background:#1B402A !important; border-color:#81C995 !important;
+    color:#CEEAD6 !important; box-shadow:inset 0 0 0 1px #81C995 !important;
+  }
+  /* Filtros de "Mis registros" */
+  html.oscuro .filtro.active{
+    background:#3A2A5C !important; border-color:#C58AF9 !important;
+    color:#EADDFF !important; font-weight:600 !important;
+  }
+  /* Pestañas de plantas (planos.js) */
+  html.oscuro .pl-tab{background:#2A2E33 !important;border-color:#3C4043 !important;color:#B8BCC2 !important;}
+  html.oscuro .pl-tab.active{background:#4A2E10 !important;border-color:#FF8F3C !important;color:#FFD2AC !important;}
+  html.oscuro .pl-tab-add{color:#B8BCC2 !important;border-color:#3C4043 !important;}
+  html.oscuro .pl-btn{background:#2A2E33 !important;border-color:#3C4043 !important;color:#E8EAED !important;}
+  html.oscuro .pl-btn-del{color:#F28B82 !important;border-color:#5C2B27 !important;}
+  html.oscuro .pl-btn-rot{color:#81C995 !important;border-color:#25482F !important;}
+  html.oscuro .pl-btn-merge{color:#C58AF9 !important;border-color:#3E2A5C !important;}
+  html.oscuro .pl-btn.on{background:#4A2E10 !important;border-color:#FF8F3C !important;color:#FFD2AC !important;}
+  html.oscuro .pl-hint, html.oscuro .pl-calco{color:#9AA0A6 !important;}
+  html.oscuro .pl-size{background:#22262B !important;border-color:#3C4043 !important;color:#B8BCC2 !important;}
+  /* El lienzo de plantas se deja BLANCO a propósito: el dibujo es a trazo negro
+     y el borrador de área es blanco opaco. Invertirlo rompería el borrador. */
+  /* Segmentos del mapa de campo */
+  html.oscuro .mc-seg button{background:#2A2E33 !important;color:#B8BCC2 !important;border-color:#3C4043 !important;}
+  html.oscuro .mc-seg button.on{background:#1B402A !important;color:#CEEAD6 !important;border-color:#81C995 !important;}
   html.oscuro .section-table input, html.oscuro .dep-table input{background:#2A2E33 !important;color:#E8EAED !important;}
   /* Tablas de entorno y secciones rurales */
   html.oscuro .env-table input, html.oscuro .env-table select, html.oscuro .env-table textarea{background:#2A2E33 !important;color:#E8EAED !important;}

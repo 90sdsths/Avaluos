@@ -82,7 +82,7 @@
   .btn-add-sub:active{background:#F1F3F4;}
 </style>
 </head>
-<body>
+<body class="rural-page">
 <header>
   <button class="btn-back" onclick="location.href='index.html'">‹</button>
   <div class="header-text">
@@ -142,7 +142,7 @@
       </div>
     </div>
     <div class="field"><label>Vereda</label><input type="text" id="f_vereda" placeholder="Nombre de la vereda"></div>
-    <div class="field"><label>Nombre del predio</label><input type="text" id="f_nombre_predio" placeholder="Ej: El Recuerdo, Lote 3, La Esperanza"></div>
+    <div class="field"><label>Nombre del predio <span class="req">*</span></label><input type="text" id="f_nombre_predio" placeholder="Ej: El Recuerdo, Lote 3, La Esperanza"><small style="font-size:11px;color:var(--gray);">Es lo que distingue dos predios del mismo dueño en la misma vereda. Si no lo sabes, usa "Predio 1", "Predio 2"…</small></div>
     <div class="field"><label>Descripción de acceso / dirección</label><textarea id="f_descripcion_acceso" placeholder="Descripción de cómo llegar al predio"></textarea></div>
   </div>
 </div>
@@ -476,7 +476,20 @@ function updateProgress(){
 tracked.forEach(id=>{const el=document.getElementById(id);if(el){el.addEventListener('input',updateProgress);el.addEventListener('change',updateProgress);}});
 
 async function guardar(){
-  const reqs=[{id:'f_fecha_visita',label:'Fecha de visita'},{id:'f_contratante',label:'Contratante'},{id:'f_municipio',label:'Municipio'}];
+  // "Nombre del predio" es OBLIGATORIO: sin él, dos predios del mismo dueño en
+  // la misma vereda y el mismo día generan exactamente el mismo nombre de
+  // archivo. Si el usuario no lo sabe, se ofrece numerarlo automáticamente.
+  const campoPredio=document.getElementById('f_nombre_predio');
+  if(!campoPredio.value.trim()){
+    const sug=await sugerirNombrePredio();
+    const n=prompt('Falta el "Nombre del predio".\n\nEs lo que distingue este predio de otro del mismo dueño en la misma vereda.\nSi no lo sabes, acepta la sugerencia:', sug);
+    if(n===null || !n.trim()){
+      alert('No se guardó: el nombre del predio es obligatorio.');
+      campoPredio.focus(); return;
+    }
+    campoPredio.value=n.trim();
+  }
+  const reqs=[{id:'f_fecha_visita',label:'Fecha de visita'},{id:'f_contratante',label:'Contratante'},{id:'f_municipio',label:'Municipio'},{id:'f_nombre_predio',label:'Nombre del predio'}];
   const falt=reqs.filter(r=>!document.getElementById(r.id).value.trim());
   if(falt.length){alert('Campos obligatorios:\n'+falt.map(r=>'• '+r.label).join('\n'));document.getElementById(falt[0].id).focus();return;}
 
@@ -493,14 +506,30 @@ async function guardar(){
   odEl.textContent='💾 Guardando...';
   let res;
   try{ res=await AvaluosStorage.guardar(reg); window._idAsignado=reg.id; }catch(e){ res={ok:false}; }
-  if(res && res.metodo==='carpeta') odEl.textContent='✅ Guardado directo en la carpeta de OneDrive';
-  else if(res && res.metodo==='descarga') odEl.textContent='⬇️ Archivo descargado — compártelo a OneDrive desde el celular';
-  else odEl.textContent='⚠️ No se pudo guardar el archivo';
+  odEl.textContent = mensajeGuardado(res);
+  if(res && res.renombrado) avisarRenombrado(res);
 
-  document.getElementById('json_output').value=json;
+  document.getElementById('json_output').value=JSON.stringify(reg,null,2); // reg pudo cambiar de nombre_base dentro de guardar()
   document.getElementById('export_area').classList.add('show');
   document.getElementById('toast').classList.add('show');
   window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// Mensaje de resultado del guardado + aviso si el archivo cambió de nombre.
+function mensajeGuardado(res){
+  if(!res || !res.ok) return '\u26a0\ufe0f No se pudo guardar el archivo';
+  if(res.metodo==='carpeta')     return '\u2705 Guardado directo en la carpeta de OneDrive \u2014 ' + (res.archivo||'');
+  if(res.metodo==='descarga')    return '\u2b07\ufe0f Descargado: ' + (res.archivo||'') + ' \u2014 FolderSync lo sube a OneDrive';
+  if(res.metodo==='sin-cambios') return '\u2705 Guardado. Sin cambios desde la \u00faltima descarga, as\u00ed que NO se descarg\u00f3 de nuevo (evita duplicados en Descargas).';
+  return '\u2705 Guardado en este dispositivo';
+}
+function avisarRenombrado(res){
+  const r=res.renombrado; if(!r) return;
+  const enCarpeta = (res.metodo==='carpeta');
+  const txt = enCarpeta
+    ? 'El archivo se renombr\u00f3:\n\n  antes: '+r.de+'\n  ahora: '+r.a+'\n\nEl anterior ya se borr\u00f3 de la carpeta autom\u00e1ticamente.'
+    : 'El archivo se renombr\u00f3:\n\n  antes: '+r.de+'\n  ahora: '+r.a+'\n\nEl navegador no puede borrar el anterior. Borra "'+r.de+'" de OneDrive para no dejar un duplicado.';
+  alert(txt);
 }
 
 function construirRegistro(){
@@ -582,7 +611,26 @@ function construirRegistro(){
   return reg;
 }
 
-// Esquema: CODIGODANE_Municipio_rural_Vereda_Contratante_Fecha
+// Propone "Predio N" mirando cuántos predios ya hay del mismo contratante en la
+// misma vereda y municipio, para que la numeración siga donde iba.
+async function sugerirNombrePredio(){
+  const norm=s=>(s||'').toString().trim().toLowerCase();
+  const mun=norm(document.getElementById('f_municipio').value);
+  const ver=norm(document.getElementById('f_vereda').value);
+  const con=norm(document.getElementById('f_contratante').value);
+  let n=1;
+  try{
+    const todos=await AvaluosStorage.listarTodos();
+    const hermanos=todos.filter(r=>r.tipo==='RURAL' && norm(r.municipio)===mun &&
+                                   norm(r.vereda)===ver && norm(r.contratante)===con);
+    n=hermanos.length+1;
+    // no repetir un "Predio N" que ya exista
+    while(hermanos.some(r=>norm(r.nombre_predio)===('predio '+n))) n++;
+  }catch(e){}
+  return 'Predio '+n;
+}
+
+// Esquema: CODIGODANE_Municipio_rural_Vereda_NombrePredio_Contratante_Fecha
 function nombreBase(reg){
   const limpia=s=>(s||'').toString().trim().replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
   // reg.municipio viene como "15087 Belen" -> queda "15087_Belen" al frente
