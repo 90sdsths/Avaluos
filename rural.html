@@ -38,6 +38,12 @@
   .field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235F6368' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;padding-right:30px;}
   .field textarea{resize:vertical;min-height:65px;line-height:1.5;}
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(24,128,56,0.12);}
+  /* Buscador que reduce las opciones del desplegable de municipios */
+  .mun-buscar{position:relative;margin-bottom:5px;}
+  .mun-buscar input{padding-left:30px;padding-right:32px;font-size:14px;}
+  .mun-buscar::before{content:'🔎';position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px;pointer-events:none;opacity:0.65;}
+  .mun-buscar button{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:13px;color:var(--gray);cursor:pointer;padding:4px 6px;line-height:1;}
+  .mun-info{display:block;font-size:11px;color:var(--gray);margin-top:4px;}
   .chip-group{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px;}
   .chip{padding:7px 12px;border-radius:20px;font-size:13px;cursor:pointer;border:1.5px solid var(--gray-border);background:white;color:var(--gray);user-select:none;transition:all 0.12s;-webkit-tap-highlight-color:transparent;}
   .chip.active{background:var(--green-light);border-color:var(--green);color:var(--green);font-weight:500;}
@@ -111,10 +117,10 @@
     </div>
     <div class="field"><label>Contratante(s) <span class="req">*</span></label><input type="text" id="f_contratante" placeholder="Nombre completo"></div>
     <div class="row2">
-      <div class="field"><label>Valor total $</label><input type="number" id="f_total" placeholder="0" inputmode="numeric"></div>
-      <div class="field"><label>Anticipo / abono $</label><input type="number" id="f_anticipo" placeholder="0" inputmode="numeric"></div>
+      <div class="field"><label>Valor total $</label><input type="text" id="f_total" data-dinero placeholder="0" inputmode="decimal"></div>
+      <div class="field"><label>Anticipo / abono $</label><input type="text" id="f_anticipo" data-dinero placeholder="0" inputmode="decimal"></div>
     </div>
-    <div class="field"><label>Pendiente $ (calculado automáticamente)</label><input type="number" id="f_pendiente" placeholder="0" readonly style="background:#F1F3F4;font-weight:600;color:#188038;"></div>
+    <div class="field"><label>Pendiente $ (calculado automáticamente)</label><input type="text" id="f_pendiente" data-dinero placeholder="0" readonly style="background:#F1F3F4;font-weight:600;color:#188038;"></div>
     <div class="field">
       <label>Finalidad del avalúo</label>
       <div class="chip-group" id="chips_finalidad">
@@ -138,7 +144,12 @@
       </div>
       <div class="field">
         <label>Municipio <span class="req">*</span></label>
+        <div class="mun-buscar">
+          <input type="text" id="f_mun_buscar" placeholder="Escribe para filtrar…" autocomplete="off" inputmode="search" enterkeyhint="done">
+          <button type="button" id="f_mun_limpiar" title="Limpiar el filtro">✕</button>
+        </div>
         <select id="f_municipio"><option value="">Seleccionar...</option></select>
+        <small class="mun-info" id="f_mun_info"></small>
       </div>
     </div>
     <div class="field"><label>Vereda</label><input type="text" id="f_vereda" placeholder="Nombre de la vereda"></div>
@@ -373,6 +384,7 @@
 <script src="anotaciones.js"></script>
 <script src="fotos.js"></script>
 <script src="municipios.js"></script>
+<script src="dinero.js"></script>
 <script src="storage.js"></script>
 <script>
 const SINGLE=['chips_finalidad','chips_estado','chips_cauce_int','chips_cauce_perm','chips_irrigacion','chips_transporte'];
@@ -385,10 +397,10 @@ const secMod = crearSecciones('secContainer', 3, 2);
 
 // Pendiente automático
 function calcularPendiente(){
-  const total=parseFloat(document.getElementById('f_total').value)||0;
-  const anticipo=parseFloat(document.getElementById('f_anticipo').value)||0;
+  const total=numeroDinero(document.getElementById('f_total').value);
+  const anticipo=numeroDinero(document.getElementById('f_anticipo').value);
   const pend=total-anticipo;
-  document.getElementById('f_pendiente').value = pend!==0 ? pend.toFixed(0) : '';
+  document.getElementById('f_pendiente').value = pend!==0 ? formatoDinero(pend.toFixed(0)) : '';
 }
 document.getElementById('f_total').addEventListener('input',calcularPendiente);
 document.getElementById('f_anticipo').addEventListener('input',calcularPendiente);
@@ -420,50 +432,15 @@ function buscarProvincia(municipio){
   return '';
 }
 
-function poblarDepartamentos(){
-  const selD=document.getElementById('f_depto');
-  if(!selD||typeof MUNICIPIOS_CO==='undefined')return;
-  selD.innerHTML='';
-  MUNICIPIOS_CO.forEach(dep=>{
-    const o=document.createElement('option');
-    o.value=dep.nombre; o.textContent=dep.codigo+' '+(dep.display||dep.nombre);
-    selD.appendChild(o);
-  });
-  // Boyacá por defecto (ya viene primero en los datos)
-  selD.value='Boyaca';
-  poblarMunicipios();
-}
-function poblarMunicipios(preseleccion){
-  const selD=document.getElementById('f_depto');
-  const selM=document.getElementById('f_municipio');
-  if(!selD||!selM||typeof MUNICIPIOS_CO==='undefined')return;
-  const dep=MUNICIPIOS_CO.find(d=>d.nombre===selD.value);
-  selM.innerHTML='<option value="">Seleccionar...</option>';
-  if(!dep)return;
-  dep.municipios.forEach(m=>{
-    const o=document.createElement('option');
-    // valor guardado = "CODIGODANE NOMBRE" (ej. "15087 BELEN")
-    o.value=m.dane+' '+(m.display||m.nombre); o.textContent=m.dane+' '+(m.display||m.nombre);
-    selM.appendChild(o);
-  });
-  if(preseleccion){
-    // intentar match exacto; si no, tolerante (sin tildes, ignorando código DANE viejo/nuevo)
-    selM.value=preseleccion;
-    if(selM.value!==preseleccion){
-      const norm=s=>(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/^\d{5}\s+/,'').toLowerCase().trim();
-      const obj=norm(preseleccion);
-      const op=Array.from(selM.options).find(o=>norm(o.value)===obj);
-      if(op) selM.value=op.value;
-      else { // no está en la lista: agregar el valor viejo tal cual para no perderlo
-        const o=document.createElement('option'); o.value=preseleccion; o.textContent=preseleccion; selM.appendChild(o); selM.value=preseleccion;
-      }
-    }
-  }
-}
-// al cambiar departamento, recargar municipios
+// Departamentos y municipios: la lógica (incluido el buscador que reduce las
+// opciones al escribir) vive en municipios.js, compartida con el otro formulario.
+function poblarMunicipios(preseleccion){ MunicipioUI.poblar(preseleccion); }
 document.addEventListener('DOMContentLoaded',()=>{
-  const selD=document.getElementById('f_depto');
-  if(selD){ selD.addEventListener('change',()=>poblarMunicipios()); poblarDepartamentos(); }
+  MunicipioUI.iniciar({
+    depto:'f_depto', municipio:'f_municipio',
+    buscar:'f_mun_buscar', limpiar:'f_mun_limpiar', info:'f_mun_info',
+    porDefecto:'Boyaca'
+  });
 });
 
 
@@ -539,9 +516,9 @@ function construirRegistro(){
     tipo:'RURAL',
     fecha_visita:toExcelDate(fechaVisita),fecha_visita_texto:fechaVisita,
     contratante:document.getElementById('f_contratante').value,
-    total:parseFloat(document.getElementById('f_total').value)||0,
-    anticipo:parseFloat(document.getElementById('f_anticipo').value)||0,
-    pendiente:parseFloat(document.getElementById('f_pendiente').value)||0,
+    total:numeroDinero(document.getElementById('f_total').value),
+    anticipo:numeroDinero(document.getElementById('f_anticipo').value),
+    pendiente:numeroDinero(document.getElementById('f_pendiente').value),
     municipio,departamento:document.getElementById('f_depto').value,
     nombre_predio:document.getElementById('f_nombre_predio').value,
     provincia:buscarProvincia(municipio),
@@ -679,7 +656,7 @@ function limpiar(){
   let d;
   try{ d=await AvaluosStorage.obtener(editId); }catch(e){ return; }
   if(!d||d.tipo!=='RURAL')return;
-  const setV=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v;};
+  const setV=(id,v)=>{const el=document.getElementById(id);if(!el||v===undefined||v===null)return;/* los campos de dinero se muestran formateados, nunca en crudo */ el.value = el.hasAttribute('data-dinero') ? formatoDinero(v) : v;};
   setV('f_fecha_visita',d.fecha_visita_texto);setV('f_contratante',d.contratante);
   setV('f_total',d.total);setV('f_anticipo',d.anticipo);setV('f_pendiente',d.pendiente);
   if(d.departamento){document.getElementById('f_depto').value=d.departamento;poblarMunicipios(d.municipio);}else{setV('f_municipio',d.municipio);}setV('f_vereda',d.vereda);setV('f_nombre_predio',d.nombre_predio);

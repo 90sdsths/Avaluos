@@ -17,6 +17,14 @@
   html.oscuro a.card-btn[href="rural.html"]{background:#14291B !important;border-color:#2A5537 !important;}
   html.oscuro a.card-btn[href="registros.html"]{background:#231A38 !important;border-color:#4A3576 !important;}
   html.oscuro .folder-card{background:#2A2410 !important;border-color:#5A4B1E !important;}
+  /* Lista de carpetas de destino */
+  html.oscuro .fitem{background:#22262B !important;border-color:#3C4043 !important;}
+  html.oscuro .fitem.activa{background:#14291B !important;border-color:#81C995 !important;}
+  html.oscuro .fitem .fradio{border-color:#5F6368 !important;}
+  html.oscuro .fitem.activa .fradio{border-color:#81C995 !important;}
+  html.oscuro .fitem.activa .fradio::after{background:#81C995 !important;}
+  html.oscuro .fitem .fnom b{color:#E8EAED !important;}
+  html.oscuro .fitem .fnom span{color:#9AA0A6 !important;}
   html.oscuro .card-text span{color:#B8BCC2 !important;}
   html.oscuro .divider{background:#3C4043 !important;}
   /* Tarjetas de registro (Mis registros) */

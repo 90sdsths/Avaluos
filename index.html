@@ -45,6 +45,17 @@
   .status-line{font-size:12px;margin-top:8px;display:flex;align-items:center;gap:6px;}
   .status-dot{width:8px;height:8px;border-radius:50%;background:var(--gray-border);}
   .status-dot.on{background:var(--green);}
+  /* Lista de carpetas de destino (Syncthing / OneDrive / …) */
+  .fitem{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1.5px solid var(--gray-border);border-radius:9px;margin-bottom:7px;background:var(--white);}
+  .fitem.activa{border-color:var(--green);background:var(--green-light);}
+  .fitem .fradio{width:17px;height:17px;border-radius:50%;border:2px solid var(--gray-border);flex-shrink:0;cursor:pointer;position:relative;}
+  .fitem.activa .fradio{border-color:var(--green);}
+  .fitem.activa .fradio::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--green);}
+  .fitem .fnom{flex:1;min-width:0;cursor:pointer;}
+  .fitem .fnom b{display:block;font-size:13px;line-height:1.25;}
+  .fitem .fnom span{display:block;font-size:11px;color:var(--gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .fitem .facc{background:none;border:none;cursor:pointer;font-size:14px;padding:3px 5px;line-height:1;color:var(--gray);}
+  .fitem .facc:active{opacity:0.5;}
   .install-banner{background:var(--amber-light);border-left:4px solid var(--amber);padding:12px 16px;margin-bottom:16px;border-radius:8px;font-size:13px;display:none;}
   .install-banner.show{display:block;}
   .install-banner strong{display:block;margin-bottom:3px;color:var(--amber);}
@@ -100,10 +111,11 @@
   <p class="section-title">Carpeta de destino</p>
 
   <div class="folder-card">
-    <div class="fc-head"><span style="font-size:22px">📁</span><strong>Guardar en OneDrive</strong></div>
-    <p id="folderDesc">En el portátil puedes elegir la carpeta de OneDrive una vez y los JSON se guardarán ahí directamente. En el celular el archivo se descarga para compartirlo a OneDrive.</p>
-    <button class="btn-folder" id="btnFolder" onclick="elegirCarpeta()">Elegir carpeta de destino</button>
-    <div class="status-line"><span class="status-dot" id="folderDot"></span><span id="folderStatus">Carpeta no configurada</span></div>
+    <div class="fc-head"><span style="font-size:22px">📁</span><strong>¿Dónde se guardan los JSON?</strong></div>
+    <p id="folderDesc">En el portátil puedes tener varias carpetas (Syncthing, OneDrive…) y alternar entre ellas con un toque. Los registros se guardan en la que esté marcada como activa.</p>
+    <div id="folderList"></div>
+    <button class="btn-folder" id="btnFolder" onclick="agregarCarpeta()">+ Añadir carpeta de destino</button>
+    <div class="status-line"><span class="status-dot" id="folderDot"></span><span id="folderStatus">Ninguna carpeta configurada</span></div>
   </div>
 </div>
 
@@ -114,20 +126,67 @@ async function refrescarEstado(){
   const st=document.getElementById('folderStatus');
   const btn=document.getElementById('btnFolder');
   const desc=document.getElementById('folderDesc');
+  const lista=document.getElementById('folderList');
   if(!AvaluosStorage.soportaCarpeta){
-    desc.textContent='Este dispositivo (móvil) no permite escribir en una carpeta directamente. Los JSON se descargan y puedes compartirlos a la app de OneDrive. Para guardado directo usa el portátil.';
-    btn.style.display='none';
-    st.textContent='Modo descarga (móvil)'; dot.classList.add('on'); return;
+    desc.textContent='Este dispositivo (móvil) no permite escribir en una carpeta directamente. Los JSON se descargan a Descargas y de ahí los sube tu app de sincronización (FolderSync o Syncthing). Para guardado directo usa el portátil.';
+    btn.style.display='none'; lista.style.display='none';
+    st.textContent='Modo descarga (móvil)'; dot.classList.add('on');
+    try{ const regs=await AvaluosStorage.listar(); if(regs.length) document.getElementById('countTxt').textContent=regs.length+' registro(s) guardado(s)'; }catch(e){}
+    return;
   }
-  if(await AvaluosStorage.tieneCarpeta()){
-    dot.classList.add('on'); st.textContent='Carpeta configurada ✓';
-    btn.textContent='Cambiar carpeta'; btn.classList.add('ok');
-  } else { dot.classList.remove('on'); st.textContent='Carpeta no configurada'; }
+  await pintarCarpetas();
   try{ const regs=await AvaluosStorage.listar(); if(regs.length) document.getElementById('countTxt').textContent=regs.length+' registro(s) guardado(s)'; }catch(e){}
 }
-async function elegirCarpeta(){
-  const ok=await AvaluosStorage.elegirCarpeta();
-  if(ok) alert('Carpeta configurada. Los próximos registros se guardarán ahí directamente.');
+
+// Dibuja la lista de carpetas. La activa lleva el punto verde y es donde
+// se escriben los JSON; tocar otra la cambia al instante.
+async function pintarCarpetas(){
+  const cont=document.getElementById('folderList');
+  const dot=document.getElementById('folderDot');
+  const st=document.getElementById('folderStatus');
+  const carpetas=await AvaluosStorage.listarCarpetas();
+  cont.innerHTML='';
+  carpetas.forEach(c=>{
+    const d=document.createElement('div');
+    d.className='fitem'+(c.activa?' activa':'');
+    d.innerHTML='<div class="fradio"></div>'+
+      '<div class="fnom"><b></b><span></span></div>'+
+      '<button type="button" class="facc" title="Renombrar">✏️</button>'+
+      '<button type="button" class="facc" title="Quitar de la lista">🗑</button>';
+    d.querySelector('.fnom b').textContent=c.nombre;
+    d.querySelector('.fnom span').textContent='📂 '+(c.carpeta||'—')+(c.activa?' · activa':'');
+    const activar=async()=>{
+      if(c.activa) return;
+      const r=await AvaluosStorage.activarCarpeta(c.id);
+      if(r.ok && !r.permiso) alert('Cambiada a "'+c.nombre+'".\n\nEl navegador pidió confirmar el permiso de esa carpeta. Si lo rechazaste, vuelve a tocarla para conceder el acceso.');
+      pintarCarpetas();
+    };
+    d.querySelector('.fradio').addEventListener('click',activar);
+    d.querySelector('.fnom').addEventListener('click',activar);
+    const accs=d.querySelectorAll('.facc');
+    accs[0].addEventListener('click',async e=>{
+      e.stopPropagation();
+      const n=prompt('Nombre para esta carpeta (ej. Syncthing, OneDrive):', c.nombre);
+      if(n && n.trim()){ await AvaluosStorage.renombrarCarpeta(c.id,n); pintarCarpetas(); }
+    });
+    accs[1].addEventListener('click',async e=>{
+      e.stopPropagation();
+      if(!confirm('¿Quitar "'+c.nombre+'" de la lista?\n\nSolo se quita de la app: NO se borra nada del disco.')) return;
+      await AvaluosStorage.quitarCarpeta(c.id); pintarCarpetas();
+    });
+    cont.appendChild(d);
+  });
+  const act=carpetas.find(c=>c.activa);
+  if(act){ dot.classList.add('on'); st.textContent='Guardando en: '+act.nombre+' ('+(act.carpeta||'—')+')'; }
+  else { dot.classList.remove('on'); st.textContent='Ninguna carpeta configurada — los JSON se descargarán'; }
+}
+
+async function agregarCarpeta(){
+  const n=prompt('Nombre para esta carpeta (ej. Syncthing, OneDrive):','Syncthing');
+  if(n===null) return;
+  const r=await AvaluosStorage.agregarCarpeta(n);
+  if(r.ok && r.yaEstaba) alert('Esa carpeta ya estaba en la lista como "'+r.nombre+'". Quedó activa.');
+  else if(r.ok) alert('Listo. Los próximos registros se guardarán en "'+(n.trim()||r.carpeta)+'" ('+r.carpeta+').');
   refrescarEstado();
 }
 let deferredPrompt;

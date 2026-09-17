@@ -95,16 +95,118 @@
   }
   const DL_KEY = id => 'avaluos_dl:' + id;
 
-  // ---------- Carpeta destino (File System Access) ----------
+  // ============================================================
+  // CARPETAS DE DESTINO (File System Access) — VARIAS, CONMUTABLES
+  // ------------------------------------------------------------
+  // Antes había UNA sola carpeta ('dirHandle'). Ahora se guarda una
+  // LISTA con nombre y se marca cuál está ACTIVA, para poder alternar
+  // entre la carpeta de Syncthing y la de OneDrive sin volver a
+  // elegirlas cada vez.
+  // LÍMITE HONESTO: por seguridad el navegador NO entrega la ruta
+  // completa (D:\...), solo el nombre de la carpeta (handle.name).
+  // Por eso cada carpeta lleva además un nombre puesto por el usuario.
+  // ============================================================
   const FSA = ('showDirectoryPicker' in global);
 
-  async function elegirCarpeta(){
+  async function leerCarpetas(){
+    let cfg = await idbGet(STORE_CFG, 'carpetas');
+    if(!cfg || !Array.isArray(cfg.lista)) cfg = { lista: [], activa: null };
+    // Migración desde versiones anteriores: la carpeta única pasa a la lista.
+    if(!cfg.lista.length){
+      const viejo = await idbGet(STORE_CFG, 'dirHandle');
+      if(viejo){
+        cfg = { lista:[{ id:'c1', nombre:'OneDrive', handle:viejo }], activa:'c1' };
+        try{ await idbPut(STORE_CFG, cfg, 'carpetas'); }catch(e){}
+      }
+    }
+    if(cfg.lista.length && !cfg.lista.some(c=>c.id===cfg.activa)) cfg.activa = cfg.lista[0].id;
+    return cfg;
+  }
+
+  async function guardarCarpetas(cfg){
+    await idbPut(STORE_CFG, cfg, 'carpetas');
+    // 'dirHandle' se mantiene al día apuntando a la activa, por compatibilidad.
+    const act = cfg.lista.find(c=>c.id===cfg.activa);
+    try{ await idbPut(STORE_CFG, act ? act.handle : null, 'dirHandle'); }catch(e){}
+    invalidarCacheCarpeta();
+  }
+
+  // Handle de la carpeta ACTIVA (sustituye a idbGet(STORE_CFG,'dirHandle')).
+  async function handleActivo(){
+    const cfg = await leerCarpetas();
+    const act = cfg.lista.find(c=>c.id===cfg.activa);
+    return act ? act.handle : null;
+  }
+
+  async function listarCarpetas(){
+    const cfg = await leerCarpetas();
+    return cfg.lista.map(c=>({
+      id:c.id, nombre:c.nombre,
+      carpeta:(c.handle && c.handle.name) || '',
+      activa:(c.id===cfg.activa)
+    }));
+  }
+
+  // Abre el selector del sistema y añade la carpeta elegida a la lista.
+  // Si ya estaba (isSameEntry compara la carpeta REAL, no el nombre), solo la activa.
+  async function agregarCarpeta(nombre){
+    if(!FSA) return { ok:false, motivo:'sin-soporte' };
+    let handle;
+    try{ handle = await global.showDirectoryPicker({ mode:'readwrite' }); }
+    catch(e){ return { ok:false, motivo:'cancelado' }; }
+    const cfg = await leerCarpetas();
+    for(const c of cfg.lista){
+      try{
+        if(c.handle && await c.handle.isSameEntry(handle)){
+          cfg.activa = c.id; await guardarCarpetas(cfg);
+          return { ok:true, id:c.id, nombre:c.nombre, carpeta:handle.name, yaEstaba:true };
+        }
+      }catch(e){}
+    }
+    const id = 'c' + Date.now().toString(36);
+    cfg.lista.push({ id, nombre:(nombre||'').toString().trim() || handle.name || 'Carpeta', handle });
+    cfg.activa = id;
+    await guardarCarpetas(cfg);
+    return { ok:true, id, nombre:cfg.lista[cfg.lista.length-1].nombre, carpeta:handle.name };
+  }
+
+  // Cambia la carpeta activa. Pide permiso si el navegador lo revocó
+  // (funciona porque se llama desde un clic del usuario).
+  async function activarCarpeta(id){
+    const cfg = await leerCarpetas();
+    const c = cfg.lista.find(x=>x.id===id);
+    if(!c) return { ok:false, motivo:'no-existe' };
+    cfg.activa = id;
+    await guardarCarpetas(cfg);
+    const permiso = await verificarPermiso(c.handle);
+    return { ok:true, permiso, nombre:c.nombre, carpeta:(c.handle&&c.handle.name)||'' };
+  }
+
+  async function renombrarCarpeta(id, nombre){
+    const cfg = await leerCarpetas();
+    const c = cfg.lista.find(x=>x.id===id);
+    if(!c) return false;
+    c.nombre = (nombre||'').toString().trim() || c.nombre;
+    await guardarCarpetas(cfg);
+    return true;
+  }
+
+  // Quita la carpeta de la lista de la app. NO borra nada del disco.
+  async function quitarCarpeta(id){
+    const cfg = await leerCarpetas();
+    const i = cfg.lista.findIndex(x=>x.id===id);
+    if(i < 0) return false;
+    cfg.lista.splice(i,1);
+    if(cfg.activa === id) cfg.activa = cfg.lista.length ? cfg.lista[0].id : null;
+    await guardarCarpetas(cfg);
+    return true;
+  }
+
+  // Compatibilidad: sigue existiendo "elegir carpeta" a secas.
+  async function elegirCarpeta(nombre){
     if(!FSA){ alert('Tu navegador no permite elegir carpeta. En el celular el archivo se descargará.'); return false; }
-    try{
-      const handle=await global.showDirectoryPicker({mode:'readwrite'});
-      await idbPut(STORE_CFG, handle, 'dirHandle');
-      return true;
-    }catch(e){ return false; }
+    const r = await agregarCarpeta(nombre);
+    return !!r.ok;
   }
 
   async function verificarPermiso(handle){
@@ -122,7 +224,7 @@
     if(!FSA) return [];
     if(!forzar && _cacheCarpeta && (Date.now()-_cacheCarpetaT) < 20000) return _cacheCarpeta;
     try{
-      const handle=await idbGet(STORE_CFG,'dirHandle');
+      const handle=await handleActivo();
       if(!handle) return [];
       if(!(await verificarPermiso(handle))) return [];
       const out=[];
@@ -177,7 +279,7 @@
   async function escribirEnCarpeta(nombre, contenido, idRegistro){
     if(!FSA) return false;
     try{
-      const handle=await idbGet(STORE_CFG,'dirHandle');
+      const handle=await handleActivo();
       if(!handle) return false;
       if(!(await verificarPermiso(handle))) return false;
       // Limpiar versiones viejas del MISMO registro con nombre distinto
@@ -203,7 +305,7 @@
   async function leerCarpeta(){
     if(!FSA) return [];
     try{
-      const handle=await idbGet(STORE_CFG,'dirHandle');
+      const handle=await handleActivo();
       if(!handle) return [];
       if(!(await verificarPermiso(handle))) return [];
       const registros=[];
@@ -333,7 +435,7 @@
   async function escribirMaestroArchivo(listaLocal, forzar){
     if(!FSA) return false;
     try{
-      const handle=await idbGet(STORE_CFG,'dirHandle');
+      const handle=await handleActivo();
       if(!handle) return false;
       if(!(await verificarPermiso(handle))) return false;
       let lista=listaLocal.slice();
@@ -384,9 +486,19 @@
   const Storage = {
     soportaCarpeta: FSA,
     elegirCarpeta: elegirCarpeta,
+    // --- carpetas múltiples (Syncthing / OneDrive / la que sea) ---
+    listarCarpetas: listarCarpetas,
+    agregarCarpeta: agregarCarpeta,
+    activarCarpeta: activarCarpeta,
+    renombrarCarpeta: renombrarCarpeta,
+    quitarCarpeta: quitarCarpeta,
+    async carpetaActiva(){
+      const l = await listarCarpetas();
+      return l.find(c=>c.activa) || null;
+    },
 
     async tieneCarpeta(){
-      const h=await idbGet(STORE_CFG,'dirHandle'); return !!h;
+      const h=await handleActivo(); return !!h;
     },
 
     // Guarda registro: copia local + carpeta/descarga
@@ -551,7 +663,7 @@
       let lista=await leerMaestro();
       if(FSA && await this.tieneCarpeta()){
         try{
-          const handle=await idbGet(STORE_CFG,'dirHandle');
+          const handle=await handleActivo();
           const fh=await handle.getFileHandle('_MapaMaestro.json',{create:false});
           const f=await fh.getFile(); const prev=JSON.parse(await f.text());
           if(prev&&prev.geometrias){
