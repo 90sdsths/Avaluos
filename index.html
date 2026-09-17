@@ -182,12 +182,26 @@ async function pintarCarpetas(){
 }
 
 async function agregarCarpeta(){
-  const n=prompt('Nombre para esta carpeta (ej. Syncthing, OneDrive):','Syncthing');
-  if(n===null) return;
-  const r=await AvaluosStorage.agregarCarpeta(n);
-  if(r.ok && r.yaEstaba) alert('Esa carpeta ya estaba en la lista como "'+r.nombre+'". Quedó activa.');
-  else if(r.ok) alert('Listo. Los próximos registros se guardarán en "'+(n.trim()||r.carpeta)+'" ('+r.carpeta+').');
-  refrescarEstado();
+  // PRIMERO el selector de carpetas: abrirlo exige el clic del usuario todavía
+  // "vivo". Si antes se muestra un prompt() para el nombre, el navegador da el
+  // gesto por gastado y el selector NO abre (por eso antes solo dejaba renombrar
+  // la carpeta vieja). El nombre se pregunta después, ya con la carpeta elegida.
+  const r=await AvaluosStorage.agregarCarpeta();
+  if(!r.ok){
+    if(r.motivo==='cancelado'){ /* el usuario cerró el selector: sin ruido */ }
+    else if(r.motivo==='sin-soporte') alert('Este navegador no permite elegir carpeta. Usa Chrome o Edge en el computador.');
+    else alert('No se pudo abrir el selector de carpetas.\n\n'+(r.detalle||''));
+    return;
+  }
+  if(r.yaEstaba){
+    alert('Esa carpeta ya estaba en la lista como "'+r.nombre+'". Quedó activa.');
+    refrescarEstado(); return;
+  }
+  const n=prompt('Carpeta elegida: '+r.carpeta+'\n\n¿Con qué nombre la quieres ver en la lista?','Syncthing');
+  if(n && n.trim()) await AvaluosStorage.renombrarCarpeta(r.id, n);
+  await refrescarEstado();
+  const act=await AvaluosStorage.carpetaActiva();
+  alert('Listo. Los próximos registros se guardarán en "'+(act?act.nombre:r.carpeta)+'" ('+r.carpeta+').');
 }
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('installBanner').classList.add('show');});

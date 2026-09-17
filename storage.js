@@ -149,11 +149,20 @@
 
   // Abre el selector del sistema y añade la carpeta elegida a la lista.
   // Si ya estaba (isSameEntry compara la carpeta REAL, no el nombre), solo la activa.
+  //
+  // IMPORTANTE: hay que llamarla DIRECTAMENTE desde el clic del usuario. Si antes
+  // se abre un prompt() o un alert(), el navegador da por consumido el gesto y el
+  // selector de carpeta ya no abre (ese era el fallo: pedía el nombre primero y
+  // luego el selector nunca aparecía). El nombre se pregunta DESPUÉS.
   async function agregarCarpeta(nombre){
     if(!FSA) return { ok:false, motivo:'sin-soporte' };
     let handle;
-    try{ handle = await global.showDirectoryPicker({ mode:'readwrite' }); }
-    catch(e){ return { ok:false, motivo:'cancelado' }; }
+    try{ handle = await global.showDirectoryPicker({ id:'avaluosDestino', mode:'readwrite' }); }
+    catch(e){
+      const n = (e && e.name) || '';
+      if(n === 'AbortError') return { ok:false, motivo:'cancelado' };
+      return { ok:false, motivo:'error', detalle:(e && e.message) || String(e) };
+    }
     const cfg = await leerCarpetas();
     for(const c of cfg.lista){
       try{
@@ -166,7 +175,10 @@
     const id = 'c' + Date.now().toString(36);
     cfg.lista.push({ id, nombre:(nombre||'').toString().trim() || handle.name || 'Carpeta', handle });
     cfg.activa = id;
-    await guardarCarpetas(cfg);
+    // Si guardar falla (p.ej. IndexedDB lleno o bloqueado) hay que DECIRLO: antes
+    // el error se propagaba y el botón se quedaba mudo a mitad de camino.
+    try{ await guardarCarpetas(cfg); }
+    catch(e){ return { ok:false, motivo:'error', detalle:'No se pudo guardar la carpeta: '+((e&&e.message)||e) }; }
     return { ok:true, id, nombre:cfg.lista[cfg.lista.length-1].nombre, carpeta:handle.name };
   }
 
@@ -209,12 +221,29 @@
     return !!r.ok;
   }
 
-  async function verificarPermiso(handle){
-    if(!handle) return false;
+  // OJO: requestPermission() solo funciona dentro de un CLIC del usuario. Si se
+  // llama al cargar la página, el navegador lo rechaza. Por eso nunca lanza:
+  // devuelve false y quien llama decide si pedirle al usuario que toque algo.
+  async function verificarPermiso(handle, pedir){
+    if(!handle || typeof handle.queryPermission !== 'function') return false;
     const opts={mode:'readwrite'};
-    if((await handle.queryPermission(opts))==='granted') return true;
-    if((await handle.requestPermission(opts))==='granted') return true;
+    try{
+      if((await handle.queryPermission(opts))==='granted') return true;
+      if(pedir === false) return false;          // no molestar fuera de un clic
+      if((await handle.requestPermission(opts))==='granted') return true;
+    }catch(e){ /* sin gesto del usuario, o permiso denegado */ }
     return false;
+  }
+
+  // ¿En qué estado está la carpeta activa? Sin pedir nada ni lanzar errores.
+  // 'sin-carpeta' | 'granted' | 'pendiente'  ('pendiente' = hay carpeta pero
+  // hace falta un clic del usuario para que el navegador conceda el permiso).
+  async function estadoCarpeta(){
+    const h = await handleActivo();
+    if(!h) return 'sin-carpeta';
+    if(typeof h.queryPermission !== 'function') return 'pendiente';
+    try{ return (await h.queryPermission({mode:'readwrite'}))==='granted' ? 'granted' : 'pendiente'; }
+    catch(e){ return 'pendiente'; }
   }
 
   // Escaneo de la carpeta: [{nombre_archivo, nombre_base, id}]. Se cachea unos
@@ -422,6 +451,23 @@
       const tb = Math.max.apply(null, (rb.length?rb:[{}]).map(marcaTiempo).concat([0]));
       return tb - ta;
     });
+  }
+
+  // Trae a IndexedDB los registros que solo existen en la carpeta.
+  // HAY QUE LLAMARLA DESDE UN CLIC del usuario: leer la carpeta necesita que el
+  // navegador conceda el permiso, y eso solo lo hace con un gesto. Sin esto, un
+  // formulario recién abierto no ve los avalúos que están en Syncthing/OneDrive
+  // pero todavía no en la base local de este navegador.
+  async function sincronizarCarpeta(){
+    if(!FSA) return { ok:false, motivo:'sin-soporte', n:0 };
+    const h = await handleActivo();
+    if(!h) return { ok:false, motivo:'sin-carpeta', n:0 };
+    if(!(await verificarPermiso(h, true))) return { ok:false, motivo:'sin-permiso', n:0 };
+    invalidarCacheCarpeta();
+    try{
+      const regs = await leerCarpeta();   // leerCarpeta ya los guarda en IndexedDB
+      return { ok:true, n:regs.length };
+    }catch(e){ return { ok:false, motivo:'error', detalle:String(e), n:0 }; }
   }
 
   // Copia los campos compartidos a los HERMANOS del encargo (no al propio).
@@ -691,6 +737,8 @@
     marcaTiempo: marcaTiempo,
     // --- encargos (varios avalúos con un mismo contrato y monto) ---
     listarEncargos: listarEncargos,
+    sincronizarCarpeta: sincronizarCarpeta,
+    estadoCarpeta: estadoCarpeta,
     propagarEncargo: propagarEncargo,
     camposEncargo: CAMPOS_ENCARGO.slice(),
     leerCarpeta: leerCarpeta,

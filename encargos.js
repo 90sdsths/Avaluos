@@ -113,17 +113,45 @@
     });
   }
 
+  // Se llama DESDE EL CLIC en "un encargo ya registrado". Ese detalle importa:
+  // leer la carpeta (Syncthing/OneDrive) necesita que el navegador conceda el
+  // permiso, y eso solo lo hace con un gesto del usuario. Al abrir la página no
+  // hay gesto, así que los avalúos que solo están en la carpeta serían invisibles
+  // — ese era el fallo de "todavía no hay encargos guardados".
   async function modoExistente(){
+    const S = global.AvaluosStorage;
+    if(elInfo) elInfo.textContent='Buscando encargos…';
     await cargarLista();
+
+    // Si la base local tiene poco o nada, mirar también la carpeta de destino.
+    let estado = 'sin-carpeta';
+    try{ estado = await S.estadoCarpeta(); }catch(e){}
+    if(estado !== 'sin-carpeta'){
+      try{
+        const sync = await S.sincronizarCarpeta();   // aprovecha el clic vigente
+        if(sync.ok && sync.n) await cargarLista();
+        else if(!sync.ok && sync.motivo==='sin-permiso' && !encargos.length){
+          if(elInfo) elInfo.innerHTML='No pude leer la carpeta de destino: el navegador no concedió el permiso. '+
+            'Vuelve a tocar esta opción y acepta el aviso, o abre <b>Mis registros → Leer carpeta</b>.';
+          if(selEnc) selEnc.style.display='none';
+          const rn = document.querySelector('input[name=enc_modo][value=nuevo]');
+          if(rn) rn.checked = true;
+          return;
+        }
+      }catch(e){}
+    }
+
     if(!encargos.length){
-      if(elInfo) elInfo.textContent='Todavía no hay encargos guardados en este dispositivo. Guarda el primer avalúo y luego podrás enlazar los demás.';
+      if(elInfo) elInfo.textContent = (estado==='sin-carpeta')
+        ? 'Todavía no hay encargos en este dispositivo. Guarda el primer avalúo y luego podrás enlazar los demás.'
+        : 'No se encontraron encargos ni en este dispositivo ni en la carpeta de destino.';
       if(selEnc) selEnc.style.display='none';
-      const r = document.querySelector('input[name=enc_modo][value=nuevo]');
-      if(r){ r.checked = true; }
+      const rn = document.querySelector('input[name=enc_modo][value=nuevo]');
+      if(rn) rn.checked = true;
       return;
     }
     if(selEnc) selEnc.style.display='';
-    if(elInfo) elInfo.textContent='Elige el encargo: contratante, montos, finalidad y fecha de elaboración se llenarán solos.';
+    if(elInfo) elInfo.textContent = encargos.length+' encargo(s) disponibles. Elige uno: contratante, montos, finalidad y fecha de elaboración se llenarán solos.';
   }
 
   function iniciar(){
