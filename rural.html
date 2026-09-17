@@ -38,12 +38,29 @@
   .field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235F6368' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;padding-right:30px;}
   .field textarea{resize:vertical;min-height:65px;line-height:1.5;}
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(24,128,56,0.12);}
-  /* Buscador que reduce las opciones del desplegable de municipios */
-  .mun-buscar{position:relative;margin-bottom:5px;}
-  .mun-buscar input{padding-left:30px;padding-right:32px;font-size:14px;}
-  .mun-buscar::before{content:'🔎';position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px;pointer-events:none;opacity:0.65;}
-  .mun-buscar button{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:13px;color:var(--gray);cursor:pointer;padding:4px 6px;line-height:1;}
+  /* Municipio: UN SOLO campo que filtra la lista al escribir */
+  .mun-box{position:relative;}
+  .mun-box > input{padding-right:34px;}
+  .mun-box > input.sin-elegir{border-style:dashed;}
+  .mun-box > button{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:14px;color:var(--gray);cursor:pointer;padding:6px 8px;line-height:1;}
+  .mb-panel{display:none;position:absolute;z-index:900;left:0;right:0;top:calc(100% + 3px);max-height:240px;overflow-y:auto;background:var(--white);border:1.5px solid var(--gray-border);border-radius:var(--radius);box-shadow:0 6px 20px rgba(0,0,0,0.18);-webkit-overflow-scrolling:touch;}
+  .mb-panel.abierto{display:block;}
+  .mb-op{padding:10px 11px;font-size:14px;cursor:pointer;border-bottom:0.5px solid var(--gray-border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mb-op:last-child{border-bottom:none;}
+  .mb-op.marcado{background:var(--gray-light);}
+  .mb-op.elegido{font-weight:600;}
+  .mb-op.elegido::before{content:'✓ ';}
+  .mb-vacio{padding:11px;font-size:12px;color:var(--gray);}
   .mun-info{display:block;font-size:11px;color:var(--gray);margin-top:4px;}
+  /* Vínculo de encargo: campos compartidos entre varios avalúos */
+  .enc-vinculo{padding:10px;border:1.5px dashed var(--gray-border);border-radius:var(--radius);background:#FAFBFC;}
+  .enc-modo{display:flex;flex-wrap:wrap;gap:12px;margin:2px 0 4px;}
+  .enc-modo label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400;cursor:pointer;margin:0;}
+  .enc-modo input[type=radio]{width:auto;margin:0;-webkit-appearance:auto;appearance:auto;}
+  .enc-info{display:block;font-size:11px;color:var(--gray);margin-top:5px;line-height:1.35;}
+  .enc-tag{font-size:10px;opacity:0.75;}
+  .enc-pie{font-size:11px;color:var(--gray);margin-top:10px;opacity:0.85;}
+  [data-encargo].enc-heredado{background:#EEF4FF;}
   .chip-group{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px;}
   .chip{padding:7px 12px;border-radius:20px;font-size:13px;cursor:pointer;border:1.5px solid var(--gray-border);background:white;color:var(--gray);user-select:none;transition:all 0.12s;-webkit-tap-highlight-color:transparent;}
   .chip.active{background:var(--green-light);border-color:var(--green);color:var(--green);font-weight:500;}
@@ -107,36 +124,27 @@
   </div>
 </div>
 
-<!-- ENCARGO -->
+<!-- ENCARGO (incluye lo que le da IDENTIDAD al registro: quién, dónde y cuándo) -->
 <div class="card">
   <div class="card-header"><span>📅 Encargo</span></div>
   <div class="card-body">
+
+    <div class="field enc-vinculo">
+      <label>Este avalúo pertenece a…</label>
+      <div class="enc-modo">
+        <label><input type="radio" name="enc_modo" value="nuevo" checked> Un encargo nuevo</label>
+        <label><input type="radio" name="enc_modo" value="existente"> Un encargo ya registrado</label>
+      </div>
+      <select id="f_encargo" style="display:none"></select>
+      <small class="enc-info" id="f_encargo_info"></small>
+    </div>
+
     <div class="row2">
       <div class="field"><label>Fecha de visita <span class="req">*</span></label><input type="date" id="f_fecha_visita"></div>
-      <div class="field"><label>Fecha entrega</label><input type="date" id="f_fecha_entrega"></div>
+      <div class="field"><label>Fecha entrega <span class="enc-tag">🔗</span></label><input type="date" id="f_fecha_entrega" data-encargo></div>
     </div>
-    <div class="field"><label>Contratante(s) <span class="req">*</span></label><input type="text" id="f_contratante" placeholder="Nombre completo"></div>
-    <div class="row2">
-      <div class="field"><label>Valor total $</label><input type="text" id="f_total" data-dinero placeholder="0" inputmode="decimal"></div>
-      <div class="field"><label>Anticipo / abono $</label><input type="text" id="f_anticipo" data-dinero placeholder="0" inputmode="decimal"></div>
-    </div>
-    <div class="field"><label>Pendiente $ (calculado automáticamente)</label><input type="text" id="f_pendiente" data-dinero placeholder="0" readonly style="background:#F1F3F4;font-weight:600;color:#188038;"></div>
-    <div class="field">
-      <label>Finalidad del avalúo</label>
-      <div class="chip-group" id="chips_finalidad">
-        <div class="chip" data-val="comercial">Comercial</div>
-        <div class="chip" data-val="jurídico">Jurídico</div>
-        <div class="chip" data-val="hipotecario">Hipotecario</div>
-        <div class="chip" data-val="fiscal">Fiscal</div>
-      </div>
-    </div>
-  </div>
-</div>
+    <div class="field"><label>Contratante(s) <span class="req">*</span> <span class="enc-tag">🔗</span></label><input type="text" id="f_contratante" data-encargo placeholder="Nombre completo"></div>
 
-<!-- UBICACIÓN -->
-<div class="card">
-  <div class="card-header"><span>📍 Ubicación</span></div>
-  <div class="card-body">
     <div class="row2">
       <div class="field">
         <label>Departamento <span class="req">*</span></label>
@@ -144,16 +152,40 @@
       </div>
       <div class="field">
         <label>Municipio <span class="req">*</span></label>
-        <div class="mun-buscar">
-          <input type="text" id="f_mun_buscar" placeholder="Escribe para filtrar…" autocomplete="off" inputmode="search" enterkeyhint="done">
-          <button type="button" id="f_mun_limpiar" title="Limpiar el filtro">✕</button>
+        <div class="mun-box">
+          <input type="text" id="f_mun_texto" placeholder="Escribe y elige…" autocomplete="off" inputmode="search" enterkeyhint="done">
+          <button type="button" id="f_mun_abrir" tabindex="-1" aria-label="Ver municipios">▾</button>
+          <div class="mb-panel" id="f_mun_panel"></div>
         </div>
-        <select id="f_municipio"><option value="">Seleccionar...</option></select>
+        <input type="hidden" id="f_municipio">
         <small class="mun-info" id="f_mun_info"></small>
       </div>
     </div>
     <div class="field"><label>Vereda</label><input type="text" id="f_vereda" placeholder="Nombre de la vereda"></div>
     <div class="field"><label>Nombre del predio <span class="req">*</span></label><input type="text" id="f_nombre_predio" placeholder="Ej: El Recuerdo, Lote 3, La Esperanza"><small style="font-size:11px;color:var(--gray);">Es lo que distingue dos predios del mismo dueño en la misma vereda. Si no lo sabes, usa "Predio 1", "Predio 2"…</small></div>
+
+    <div class="row2">
+      <div class="field"><label>Valor total $ <span class="enc-tag">🔗</span></label><input type="text" id="f_total" data-dinero data-encargo placeholder="0" inputmode="decimal"></div>
+      <div class="field"><label>Anticipo / abono $ <span class="enc-tag">🔗</span></label><input type="text" id="f_anticipo" data-dinero data-encargo placeholder="0" inputmode="decimal"></div>
+    </div>
+    <div class="field"><label>Pendiente $ (calculado automáticamente) <span class="enc-tag">🔗</span></label><input type="text" id="f_pendiente" data-dinero data-encargo placeholder="0" readonly style="background:#F1F3F4;font-weight:600;color:#188038;"></div>
+    <div class="field">
+      <label>Finalidad del avalúo <span class="enc-tag">🔗</span></label>
+      <div class="chip-group" id="chips_finalidad" data-encargo>
+        <div class="chip" data-val="comercial">Comercial</div>
+        <div class="chip" data-val="jurídico">Jurídico</div>
+        <div class="chip" data-val="hipotecario">Hipotecario</div>
+        <div class="chip" data-val="fiscal">Fiscal</div>
+      </div>
+    </div>
+    <p class="enc-pie">🔗 = se comparte con los demás avalúos del mismo encargo.</p>
+  </div>
+</div>
+
+<!-- ACCESO AL PREDIO -->
+<div class="card">
+  <div class="card-header"><span>📍 Acceso al predio</span></div>
+  <div class="card-body">
     <div class="field"><label>Descripción de acceso / dirección</label><textarea id="f_descripcion_acceso" placeholder="Descripción de cómo llegar al predio"></textarea></div>
   </div>
 </div>
@@ -386,6 +418,7 @@
 <script src="municipios.js"></script>
 <script src="dinero.js"></script>
 <script src="storage.js"></script>
+<script src="encargos.js"></script>
 <script>
 const SINGLE=['chips_finalidad','chips_estado','chips_cauce_int','chips_cauce_perm','chips_irrigacion','chips_transporte'];
 const editorPlantas = crearEditorPlanos('editorPlantas', '#188038');
@@ -437,10 +470,11 @@ function buscarProvincia(municipio){
 function poblarMunicipios(preseleccion){ MunicipioUI.poblar(preseleccion); }
 document.addEventListener('DOMContentLoaded',()=>{
   MunicipioUI.iniciar({
-    depto:'f_depto', municipio:'f_municipio',
-    buscar:'f_mun_buscar', limpiar:'f_mun_limpiar', info:'f_mun_info',
+    depto:'f_depto', municipio:'f_municipio', texto:'f_mun_texto',
+    panel:'f_mun_panel', boton:'f_mun_abrir', info:'f_mun_info',
     porDefecto:'Boyaca'
   });
+  iniciarEncargos();
 });
 
 
@@ -485,6 +519,9 @@ async function guardar(){
   try{ res=await AvaluosStorage.guardar(reg); window._idAsignado=reg.id; }catch(e){ res={ok:false}; }
   odEl.textContent = mensajeGuardado(res);
   if(res && res.renombrado) avisarRenombrado(res);
+  try{ const p=await EncargoUI.ofrecerPropagar(reg);
+    if(p && p.actualizados.length) odEl.textContent += ' · se actualizaron '+p.actualizados.length+' avalúo(s) del encargo';
+  }catch(e){}
 
   document.getElementById('json_output').value=JSON.stringify(reg,null,2); // reg pudo cambiar de nombre_base dentro de guardar()
   document.getElementById('export_area').classList.add('show');
@@ -579,6 +616,8 @@ function construirRegistro(){
     fotos:fotosVisita?fotosVisita.getData():[],
     fecha_guardado:new Date().toLocaleString('es-CO')
   };
+  // vínculo de encargo (contratante y montos compartidos con otros avalúos)
+  Object.assign(reg, EncargoUI.datosParaRegistro());
   reg.nombre_archivo=nombreArchivo(reg);
   reg.nombre_base=nombreBase(reg);
   const params=new URLSearchParams(location.search);
@@ -659,7 +698,9 @@ function limpiar(){
   const setV=(id,v)=>{const el=document.getElementById(id);if(!el||v===undefined||v===null)return;/* los campos de dinero se muestran formateados, nunca en crudo */ el.value = el.hasAttribute('data-dinero') ? formatoDinero(v) : v;};
   setV('f_fecha_visita',d.fecha_visita_texto);setV('f_contratante',d.contratante);
   setV('f_total',d.total);setV('f_anticipo',d.anticipo);setV('f_pendiente',d.pendiente);
-  if(d.departamento){document.getElementById('f_depto').value=d.departamento;poblarMunicipios(d.municipio);}else{setV('f_municipio',d.municipio);}setV('f_vereda',d.vereda);setV('f_nombre_predio',d.nombre_predio);
+  if(d.departamento){document.getElementById('f_depto').value=d.departamento;}
+  poblarMunicipios(d.municipio);   // fija el municipio en el campo único (texto + valor)
+  setV('f_vereda',d.vereda);setV('f_nombre_predio',d.nombre_predio);
   setV('f_descripcion_acceso',d.descripcion_acceso);
   setV('env_vias_acceso',d.vias_acceso);setV('env_vias_internas',d.vias_internas);
   setV('env_servidumbres',d.servidumbres);setV('env_erosion',d.erosion);setV('env_topografia',d.topografia);
@@ -698,6 +739,8 @@ function limpiar(){
   if(d.servicios){d.servicios.replace(/ y /g,', ').split(', ').forEach(v=>{document.querySelectorAll('#chips_servicios .chip').forEach(c=>{if(c.dataset.val===v.trim())c.classList.add('active');});});}
   updateProgress();
   const h=document.querySelector('.header-text h1');if(h)h.textContent='✏️ Editando avalúo rural';
+  // recuperar el vínculo de encargo de este registro
+  try{ await EncargoUI.cargarDeRegistro(d); }catch(e){}
 })();
 </script>
 <script src="collapse.js"></script>

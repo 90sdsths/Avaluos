@@ -17,6 +17,19 @@
   html.oscuro a.card-btn[href="rural.html"]{background:#14291B !important;border-color:#2A5537 !important;}
   html.oscuro a.card-btn[href="registros.html"]{background:#231A38 !important;border-color:#4A3576 !important;}
   html.oscuro .folder-card{background:#2A2410 !important;border-color:#5A4B1E !important;}
+  /* Municipio: campo único con panel desplegable */
+  html.oscuro .mb-panel{background:#22262B !important;border-color:#3C4043 !important;box-shadow:0 6px 20px rgba(0,0,0,0.5) !important;}
+  html.oscuro .mb-op{color:#E8EAED !important;border-color:#3C4043 !important;}
+  html.oscuro .mb-op.marcado{background:#33383E !important;}
+  html.oscuro .mb-vacio{color:#9AA0A6 !important;}
+  html.oscuro .mun-box > button{color:#B8BCC2 !important;}
+  /* Vínculo de encargo */
+  html.oscuro .enc-vinculo{background:#22262B !important;border-color:#3C4043 !important;}
+  html.oscuro .enc-modo label{color:#E8EAED !important;}
+  html.oscuro .enc-info, html.oscuro .enc-pie{color:#9AA0A6 !important;}
+  html.oscuro [data-encargo].enc-heredado{background:#1B2A44 !important;}
+  html.oscuro .chip-group.enc-heredado{background:#1B2A44 !important;border-radius:8px;padding:4px;}
+  html.oscuro .badge-enc{background:#2E1F4A !important;color:#C9B6F5 !important;}
   /* Lista de carpetas de destino */
   html.oscuro .fitem{background:#22262B !important;border-color:#3C4043 !important;}
   html.oscuro .fitem.activa{background:#14291B !important;border-color:#81C995 !important;}

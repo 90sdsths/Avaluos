@@ -377,6 +377,93 @@
     return 0;
   }
 
+  // ============================================================
+  // ENCARGOS — varios avalúos que comparten un mismo contrato
+  // ------------------------------------------------------------
+  // Tres bienes de un mismo dueño pueden ser UN encargo con un solo
+  // monto. Cada registro guarda 'encargo_id' y copia los campos
+  // compartidos, y SOLO UNO lleva 'encargo_principal' = true.
+  // Así, en SQL/Excel, sumar los montos filtrando por esa columna da
+  // la cifra real del contrato y no la cuenta tres veces.
+  // Todo registro tiene encargo_id, aunque esté solo: un avalúo
+  // suelto es simplemente un encargo de uno.
+  // ============================================================
+  const CAMPOS_ENCARGO = ['contratante','total','anticipo','pendiente','finalidad',
+                          'fecha_elaboracion','fecha_entrega'];
+
+  function nuevoEncargoId(){
+    return 'enc_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+  }
+
+  // Agrupa todos los registros por encargo. Devuelve los datos compartidos
+  // tomados del registro PRINCIPAL (o del más reciente si no hay principal).
+  async function listarEncargos(){
+    let todos = [];
+    try{ todos = await Storage.listarTodos(); }catch(e){ todos = await idbAll(STORE_REG); }
+    const grupos = {};
+    todos.forEach(r=>{
+      const k = r.encargo_id || ('solo:'+r.id);
+      (grupos[k] = grupos[k] || []).push(r);
+    });
+    return Object.keys(grupos).map(k=>{
+      const hs = grupos[k];
+      const princ = hs.find(r=>r.encargo_principal) ||
+                    hs.slice().sort((a,b)=>marcaTiempo(b)-marcaTiempo(a))[0];
+      const e = { encargo_id: princ.encargo_id || k, n: hs.length,
+                  principal_id: princ.id, ids: hs.map(r=>r.id) };
+      CAMPOS_ENCARGO.forEach(c=>{ e[c] = princ[c]; });
+      e.etiqueta = (princ.contratante || 'Sin contratante') +
+                   ' · ' + (princ.fecha_visita_texto || '') +
+                   ' · ' + hs.length + (hs.length===1 ? ' avalúo' : ' avalúos');
+      return e;
+    }).sort((a,b)=>{
+      const ra = grupos[a.encargo_id] || [], rb = grupos[b.encargo_id] || [];
+      const ta = Math.max.apply(null, (ra.length?ra:[{}]).map(marcaTiempo).concat([0]));
+      const tb = Math.max.apply(null, (rb.length?rb:[{}]).map(marcaTiempo).concat([0]));
+      return tb - ta;
+    });
+  }
+
+  // Copia los campos compartidos a los HERMANOS del encargo (no al propio).
+  // Devuelve {actualizados:[ids], enCarpeta:n} para poder avisar al usuario.
+  async function propagarEncargo(encargoId, datos, exceptoId){
+    if(!encargoId) return { actualizados:[], enCarpeta:0 };
+    const todos = await idbAll(STORE_REG);
+    const hermanos = todos.filter(r=>r.encargo_id===encargoId && r.id!==exceptoId);
+    let enCarpeta = 0;
+    for(const h of hermanos){
+      CAMPOS_ENCARGO.forEach(c=>{ if(datos[c] !== undefined) h[c] = datos[c]; });
+      h.fecha_guardado = new Date().toLocaleString('es-CO');
+      await idbPut(STORE_REG, h);
+      if(FSA && await Storage.tieneCarpeta()){
+        const nom = h.nombre_archivo || (h.id+'.json');
+        if(await escribirEnCarpeta(nom, JSON.stringify(h,null,2), h.id)) enCarpeta++;
+      }
+      // el JSON del hermano cambió: que su próxima descarga no se omita
+      try{ localStorage.removeItem(DL_KEY(h.id)); }catch(e){}
+    }
+    return { actualizados: hermanos.map(h=>h.id), enCarpeta };
+  }
+
+  // Si se borra el PRINCIPAL y quedan hermanos, uno de ellos toma el relevo.
+  // Sin esto, el monto del encargo desaparecería de las sumas en SQL.
+  async function reasignarPrincipal(encargoId){
+    if(!encargoId) return null;
+    const todos = await idbAll(STORE_REG);
+    const hs = todos.filter(r=>r.encargo_id===encargoId);
+    if(!hs.length || hs.some(r=>r.encargo_principal)) return null;
+    const nuevo = hs.slice().sort((a,b)=>marcaTiempo(a)-marcaTiempo(b))[0];
+    nuevo.encargo_principal = true;
+    nuevo.fecha_guardado = new Date().toLocaleString('es-CO');
+    await idbPut(STORE_REG, nuevo);
+    if(FSA && await Storage.tieneCarpeta()){
+      const nom = nuevo.nombre_archivo || (nuevo.id+'.json');
+      await escribirEnCarpeta(nom, JSON.stringify(nuevo,null,2), nuevo.id);
+    }
+    try{ localStorage.removeItem(DL_KEY(nuevo.id)); }catch(e){}
+    return nuevo;
+  }
+
   // ===== MAPA MAESTRO (capa con todas las geometrías de todos los avalúos) =====
   // Extrae solo la geometría ligera de un registro (sin fotos ni datos del form)
   function geometriaDe(reg){
@@ -508,6 +595,17 @@
       registro.id = registro.id || ('avaluo_'+Date.now());
       registro.fecha_guardado = new Date().toLocaleString('es-CO');
 
+      // Todo registro pertenece a un encargo. Si no viene vinculado a uno
+      // existente, abre el suyo propio y queda como principal (es el que
+      // aporta el monto al sumar en SQL).
+      if(!registro.encargo_id){
+        registro.encargo_id = nuevoEncargoId();
+        registro.encargo_principal = true;
+      } else if(registro.encargo_principal === undefined){
+        const hs = (await idbAll(STORE_REG)).filter(r=>r.encargo_id===registro.encargo_id && r.id!==registro.id);
+        registro.encargo_principal = !hs.some(r=>r.encargo_principal);
+      }
+
       // GARANTIZAR nombre_base ÚNICO entre avalúos DISTINTOS (ids distintos).
       // Caso: dos predios del mismo dueño, misma vereda y mismo día → mismo
       // nombre_base → antes se sobre-escribían. Ahora el segundo recibe _2.
@@ -591,6 +689,10 @@
     // Expuesta para que la importación pueda comparar versiones con el mismo
     // criterio que usa listarTodos() al deduplicar.
     marcaTiempo: marcaTiempo,
+    // --- encargos (varios avalúos con un mismo contrato y monto) ---
+    listarEncargos: listarEncargos,
+    propagarEncargo: propagarEncargo,
+    camposEncargo: CAMPOS_ENCARGO.slice(),
     leerCarpeta: leerCarpeta,
     // Lista combinada: base interna + carpeta (escritorio). Deduplica por id;
     // ante duplicado, gana el más reciente por fecha_guardado.
@@ -643,7 +745,10 @@
       return null;
     },
     async eliminar(id){
+      const antes = await idbGet(STORE_REG, id);
       await idbDel(STORE_REG, id);
+      // si era el principal de un encargo con hermanos, otro toma el relevo
+      try{ if(antes && antes.encargo_id) await reasignarPrincipal(antes.encargo_id); }catch(e){}
       // liberar su nombre y olvidar la última descarga
       try{ ledgerQuitarId(id); localStorage.removeItem(DL_KEY(id)); }catch(e){}
       invalidarCacheCarpeta();

@@ -24,6 +24,7 @@
   .btn-import:active{background:#d6ecdc;}
   .btn-folder-rd{width:100%;padding:11px;border-radius:10px;border:1.5px solid var(--blue);background:var(--white);color:var(--blue);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;}
   .btn-folder-rd:active{background:var(--blue-light);}
+  .badge-enc{background:#EDE7F6;color:#5E35B1;}
   .aviso-carpeta{font-size:12px;color:var(--gray);background:#FEF3E2;border-left:3px solid var(--amber);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.4;}
   .filtro{flex:1;padding:9px;border-radius:8px;border:1.5px solid var(--gray-border);background:var(--white);font-size:13px;text-align:center;cursor:pointer;font-weight:500;color:var(--gray);}
   .filtro.active{background:var(--purple);color:white;border-color:var(--purple);}
@@ -109,7 +110,20 @@ function filtrar(f,el){
   el.classList.add('active');
   pintar();
 }
+// Cuántos avalúos comparten cada encargo (para la insignia 🔗 de la tarjeta).
+let porEncargo={};
+function contarEncargos(){
+  porEncargo={};
+  registros.forEach(r=>{ if(r.encargo_id) porEncargo[r.encargo_id]=(porEncargo[r.encargo_id]||0)+1; });
+}
+function insigniaEncargo(r){
+  const n = r.encargo_id ? (porEncargo[r.encargo_id]||1) : 1;
+  if(n<=1) return '';
+  return '<span class="reg-badge badge-enc" title="Comparte contratante y montos con otros avalúos">🔗 '+n+
+         (r.encargo_principal?' · principal':'')+'</span>';
+}
 function pintar(){
+  contarEncargos();
   const lista=document.getElementById('lista');
   const arr=registros.filter(r=>filtro==='todos'||r.tipo===filtro);
   if(!arr.length){
@@ -121,6 +135,7 @@ function pintar(){
       <div class="reg-top">
         <span class="reg-badge ${r.tipo==='URBANO'?'badge-u':'badge-r'}">${r.tipo}</span>
         <span class="reg-title">${r.municipio||'Sin municipio'}</span>
+        ${insigniaEncargo(r)}
       </div>
       <div class="reg-info">
         <span>👤 ${r.contratante||'—'}</span>
@@ -392,7 +407,10 @@ function csvEscapar(v){
   return /[",\n;]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
 }
 function exportarEcosistema(registros){
-  const colsAv=['id','tipo','municipio','vereda','contratante','direccion','fecha_visita','area_m2','area_ha','perimetro_m','alt_min','alt_max','alt_prom','pendiente_pct','pendiente_grados','finalidad','matricula','codigo_catastral','nombre_base'];
+  // encargo_id agrupa los avalúos de un mismo contrato; encargo_principal
+  // marca UNO solo, para poder sumar los montos sin contarlos varias veces:
+  //   SELECT SUM(total) FROM avaluos WHERE encargo_principal = 'SI';
+  const colsAv=['id','encargo_id','encargo_principal','tipo','municipio','vereda','contratante','direccion','fecha_visita','total','anticipo','pendiente','area_m2','area_ha','perimetro_m','alt_min','alt_max','alt_prom','pendiente_pct','pendiente_grados','finalidad','matricula','codigo_catastral','nombre_base'];
   let csvAv=colsAv.join(';')+'\n';
   const colsFo=['avaluo_id','nombre','fecha','lat','lng','alt','origen','municipio','contratante'];
   let csvFo=colsFo.join(';')+'\n';
@@ -400,7 +418,8 @@ function exportarEcosistema(registros){
   registros.forEach(r=>{
     const mc=r.mapa_campo||{};
     const el=mc.elevacion||{};
-    const filaAv=[r.id,r.tipo||'',r.municipio||'',r.vereda||'',r.contratante||'',r.direccion||'',r.fecha_visita_texto||'',
+    const filaAv=[r.id,r.encargo_id||'',r.encargo_principal?'SI':'NO',r.tipo||'',r.municipio||'',r.vereda||'',r.contratante||'',r.direccion||'',r.fecha_visita_texto||'',
+      r.total||'',r.anticipo||'',r.pendiente||'',
       mc.area_m2||'',mc.area_ha||'',mc.perimetro_m||'',
       el.pendiente_calc?el.min:'',el.pendiente_calc?el.max:'',el.pendiente_calc?el.prom:'',el.pendiente_calc?el.pendiente_pct:'',el.pendiente_calc?el.pendiente_grados:'',
       r.finalidad||'',r.matricula||'',r.codigo_catastral||'',r.nombre_base||''];
